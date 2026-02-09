@@ -1,0 +1,204 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useCallback } from 'react';
+
+export interface RekapSantri {
+  santriId: string;
+  santriNama: string;
+  halaqah: string;
+  kelas: string;
+  totalHalamanBulan: number;
+  jumlahSetoran: number;
+  ayatTerakhir: string;
+  tanggalTerakhir: string;
+  isActive: boolean;
+}
+
+export interface SetoranDetail {
+  id: string;
+  surat: string | null;
+  ayat: string | null;
+  jumlahHalaman: number;
+  tanggal: string;
+  keterangan: string | null;
+  recordedBy: string | null;
+}
+
+const bulanList = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
+export function useRekapHafalan(bulan: string, tahun: number) {
+  const { user } = useAuth();
+
+  const query = useQuery({
+    queryKey: ['rekap_hafalan', user?.id, bulan, tahun],
+    queryFn: async () => {
+      // Fetch santri list. If user is wali_santri, only fetch their children.
+      const santriQuery = supabase.from('santri').select('*').order('nama');
+      if (user?.role === 'wali_santri') {
+        santriQuery.eq('wali_id', user.id);
+      }
+      const { data: santriData, error: santriError } = await santriQuery;
+      if (santriError) throw santriError;
+
+      // If there are no santri (e.g., wali has no children), return empty result
+      const santriIds = (santriData || []).map((s) => s.id);
+
+      // Get setoran for the month filtered to santriIds when applicable
+      let setoranData: any[] = [];
+      if (santriIds.length > 0) {
+        const { data: _setoranData, error: setoranError } = await supabase
+          .from('setoran_hafalan')
+          .select('*')
+          .in('santri_id', santriIds)
+          .eq('bulan', bulan)
+          .eq('tahun', tahun)
+          .order('tanggal', { ascending: false });
+
+        if (setoranError) throw setoranError;
+        setoranData = _setoranData || [];
+      } else {
+        setoranData = [];
+      }
+
+      // Build rekap per santri
+      const rekapMap: Record<string, RekapSantri> = {};
+
+      // Initialize with fetched santri (all or only wali's children)
+      for (const santri of santriData || []) {
+        rekapMap[santri.id] = {
+          santriId: santri.id,
+          santriNama: santri.nama,
+          halaqah: santri.musyrif,
+          kelas: santri.kelas,
+          totalHalamanBulan: 0,
+          jumlahSetoran: 0,
+          ayatTerakhir: '-',
+          tanggalTerakhir: '-',
+          isActive: false,
+        };
+      }
+
+      // Process setoran data
+      for (const setoran of setoranData || []) {
+        const santriId = setoran.santri_id;
+        if (rekapMap[santriId]) {
+          rekapMap[santriId].totalHalamanBulan += Number(setoran.jumlah_halaman || 0);
+          rekapMap[santriId].jumlahSetoran += 1;
+          rekapMap[santriId].isActive = true;
+
+          // Update ayat terakhir dan tanggal terakhir (setoran sudah diurutkan desc)
+          if (rekapMap[santriId].ayatTerakhir === '-') {
+            rekapMap[santriId].ayatTerakhir = setoran.surat 
+              ? `${setoran.surat}: ${setoran.ayat || '-'}`
+              : '-';
+            rekapMap[santriId].tanggalTerakhir = setoran.tanggal;
+          }
+        }
+      }
+
+      // Convert to array and sort by total halaman desc
+      const rekapList = Object.values(rekapMap).sort((a, b) => b.totalHalamanBulan - a.totalHalamanBulan);
+
+      // Calculate statistics
+      const totalSetoran = rekapList.reduce((acc, r) => acc + r.totalHalamanBulan, 0);
+      const santriAktif = rekapList.filter(r => r.isActive).length;
+
+      return {
+        rekap: rekapList,
+        totalSetoran,
+        santriAktif,
+        totalSantri: rekapList.length,
+      };
+    },
+    enabled: !!user && !!bulan,
+  });
+
+  // Memoize refetch to avoid dependency issues
+  const refetch = useCallback(() => {
+    query.refetch();
+  }, [query]);
+
+  // Subscribe to realtime updates for setoran_hafalan
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('rekap-hafalan-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'setoran_hafalan',
+        },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, refetch]);
+
+  return query;
+}
+
+export function useSetoranDetail(santriId: string, bulan: string, tahun: number) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['setoran_detail', santriId, bulan, tahun],
+    queryFn: async () => {
+      // Get setoran data
+      const { data, error } = await supabase
+        .from('setoran_hafalan')
+        .select('*')
+        .eq('santri_id', santriId)
+        .eq('bulan', bulan)
+        .eq('tahun', tahun)
+        .order('tanggal', { ascending: false });
+
+      if (error) throw error;
+
+      // Get recorder names if there are any recorded_by values
+      const recorderIds = [...new Set((data || []).map(s => s.recorded_by).filter(Boolean))];
+      let recorderMap: Record<string, string> = {};
+      
+      if (recorderIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, nama')
+          .in('user_id', recorderIds);
+        
+        recorderMap = (profiles || []).reduce((acc, p) => {
+          acc[p.user_id] = p.nama;
+          return acc;
+        }, {} as Record<string, string>);
+      }
+
+      return (data || []).map((s) => ({
+        id: s.id,
+        surat: s.surat,
+        ayat: s.ayat,
+        jumlahHalaman: Number(s.jumlah_halaman),
+        tanggal: s.tanggal,
+        keterangan: s.keterangan,
+        recordedBy: s.recorded_by ? recorderMap[s.recorded_by] || null : null,
+      })) as SetoranDetail[];
+    },
+    enabled: !!user && !!santriId && !!bulan,
+  });
+}
+
+export function getCurrentBulan(): string {
+  const monthIndex = new Date().getMonth();
+  return bulanList[monthIndex];
+}
+
+export { bulanList };
