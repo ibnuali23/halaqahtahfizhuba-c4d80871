@@ -44,6 +44,7 @@ import SetoranDetailModal from '@/components/rekap/SetoranDetailModal';
 
 export default function RekapBulananPage() {
   const { user } = useAuth();
+  const isWaliSantri = user?.role === 'wali_santri';
   const [bulan, setBulan] = useState(getCurrentBulan());
   const [tahun, setTahun] = useState(new Date().getFullYear());
   const [filterKelas, setFilterKelas] = useState<string>('all');
@@ -132,16 +133,21 @@ export default function RekapBulananPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="font-serif text-3xl font-bold text-foreground">
-              Rekap Hafalan Bulanan
+              {isWaliSantri ? '📖 Rekap Hafalan Anak Anda' : 'Rekap Hafalan Bulanan'}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Rekap hafalan santri bulan {bulan} {tahun}
+              {isWaliSantri 
+                ? `Pantau hafalan anak Anda di bulan ${bulan} ${tahun}`
+                : `Rekap hafalan santri bulan ${bulan} ${tahun}`
+              }
             </p>
           </div>
-          <Button onClick={handleExportCSV} className="gap-2">
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
+          {!isWaliSantri && (
+            <Button onClick={handleExportCSV} className="gap-2">
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+          )}
         </div>
 
         {/* Summary Cards */}
@@ -165,52 +171,57 @@ export default function RekapBulananPage() {
             </Card>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card className="border-l-4 border-l-accent">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-accent/20">
-                    <Users className="h-5 w-5 text-accent-foreground" />
+          {!isWaliSantri && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="border-l-4 border-l-accent">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-accent/20">
+                      <Users className="h-5 w-5 text-accent-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">{santriAktif}</p>
+                      <p className="text-xs text-muted-foreground">Santri Aktif</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-foreground">{santriAktif}</p>
-                    <p className="text-xs text-muted-foreground">Santri Aktif</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="border-l-4 border-l-muted-foreground">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-muted">
-                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+          {!isWaliSantri && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="border-l-4 border-l-muted-foreground">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-muted">
+                      <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {totalSantri > 0 ? (totalSetoran / totalSantri).toFixed(1) : 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Rata-rata/Santri</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-foreground">
-                      {totalSantri > 0 ? (totalSetoran / totalSantri).toFixed(1) : 0}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Rata-rata/Santri</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
+            className={isWaliSantri ? "col-span-1" : ""}
           >
             <Card className="border-l-4 border-l-secondary">
               <CardContent className="pt-6">
@@ -294,37 +305,41 @@ export default function RekapBulananPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs">Kelas</Label>
-                <Select value={filterKelas} onValueChange={setFilterKelas}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Semua Kelas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Kelas</SelectItem>
-                    <SelectItem value="Angkatan 1">Angkatan 1</SelectItem>
-                    <SelectItem value="Angkatan 2">Angkatan 2</SelectItem>
-                    <SelectItem value="Angkatan 3">Angkatan 3</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!isWaliSantri && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Kelas</Label>
+                    <Select value={filterKelas} onValueChange={setFilterKelas}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Semua Kelas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Semua Kelas</SelectItem>
+                        <SelectItem value="Angkatan 1">Angkatan 1</SelectItem>
+                        <SelectItem value="Angkatan 2">Angkatan 2</SelectItem>
+                        <SelectItem value="Angkatan 3">Angkatan 3</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs">Halaqah</Label>
-                <Select value={filterHalaqah} onValueChange={setFilterHalaqah}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Semua Halaqah" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Halaqah</SelectItem>
-                    {halaqahNames.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Halaqah</Label>
+                    <Select value={filterHalaqah} onValueChange={setFilterHalaqah}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Semua Halaqah" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Semua Halaqah</SelectItem>
+                        {halaqahNames.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
