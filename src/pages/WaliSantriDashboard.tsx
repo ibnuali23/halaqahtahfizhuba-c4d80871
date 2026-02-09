@@ -23,8 +23,9 @@ import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { BookOpen, Search, LogOut, Lock, Users, TrendingUp } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isToday, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function WaliSantriDashboard() {
   const { user, logout } = useAuth();
@@ -99,9 +100,27 @@ export default function WaliSantriDashboard() {
   // Calculate stats
   const totalSantri = santriList?.length || 0;
   const totalSetoran = setoranList?.length || 0;
-  const avgHafalan = summaryList?.length 
+  const avgHafalan = summaryList?.length
     ? (summaryList.reduce((acc, s) => acc + (s.total_hafalan || 0), 0) / summaryList.length).toFixed(1)
     : '0';
+
+  // Daily Stats - setoran hari ini
+  const todaySetoran = setoranList?.filter(s => {
+    const setoranDate = new Date(s.tanggal);
+    return isToday(setoranDate);
+  }) || [];
+  const todaySetoranCount = todaySetoran.length;
+  const todayHalaman = todaySetoran.reduce((acc, s) => acc + (s.jumlah_halaman || 0), 0);
+
+  // Monthly Progress Chart Data
+  const monthlyData = [
+    { bulan: 'Jul', halaman: summaryList?.reduce((acc, s) => acc + (s.juli || 0), 0) || 0 },
+    { bulan: 'Agu', halaman: summaryList?.reduce((acc, s) => acc + (s.agustus || 0), 0) || 0 },
+    { bulan: 'Sep', halaman: summaryList?.reduce((acc, s) => acc + (s.september || 0), 0) || 0 },
+    { bulan: 'Okt', halaman: summaryList?.reduce((acc, s) => acc + (s.oktober || 0), 0) || 0 },
+    { bulan: 'Nov', halaman: summaryList?.reduce((acc, s) => acc + (s.november || 0), 0) || 0 },
+    { bulan: 'Des', halaman: summaryList?.reduce((acc, s) => acc + (s.desember || 0), 0) || 0 },
+  ];
 
   const handleLogout = async () => {
     await logout();
@@ -141,13 +160,13 @@ export default function WaliSantriDashboard() {
         >
           <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           <p className="text-sm text-amber-800 dark:text-amber-200">
-            🔒 Anda sedang menggunakan akun Wali Santri (mode baca saja). 
+            🔒 Anda sedang menggunakan akun Wali Santri (mode baca saja).
             Anda dapat melihat data hafalan seluruh santri tetapi tidak dapat mengubah data.
           </p>
         </motion.div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -187,7 +206,60 @@ export default function WaliSantriDashboard() {
               </div>
             </CardContent>
           </Card>
+          {/* NEW: Today's Stats */}
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Setoran Hari Ini</p>
+                  <p className="text-2xl font-bold">{todaySetoranCount}</p>
+                  <p className="text-xs text-green-600">{todayHalaman.toFixed(1)} halaman</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          {/* NEW: Monthly Total */}
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Hafalan Bulan Ini</p>
+                  <p className="text-2xl font-bold">{monthlyData[monthlyData.length - 1]?.halaman.toFixed(0) || 0}</p>
+                  <p className="text-xs text-blue-600">halaman (Desember)</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Monthly Progress Chart */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="font-serif">📊 Progres Hafalan Bulanan</CardTitle>
+            <CardDescription>
+              Total halaman yang dihafal seluruh santri per bulan (Semester 2)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="bulan" />
+                  <YAxis />
+                  <Tooltip formatter={(value: number) => [`${value} halaman`, 'Total']} />
+                  <Bar dataKey="halaman" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Filters */}
         <Card className="mb-6">
@@ -261,7 +333,7 @@ export default function WaliSantriDashboard() {
                     filteredSantri.map((santri, index) => {
                       const summary = summaryList?.find(s => s.santri_id === santri.id);
                       const lastSetoran = setoranList?.find(s => s.santri_id === santri.id);
-                      
+
                       return (
                         <TableRow key={santri.id}>
                           <TableCell>{index + 1}</TableCell>
@@ -274,7 +346,7 @@ export default function WaliSantriDashboard() {
                             {summary?.total_hafalan?.toFixed(1) || '0'} halaman
                           </TableCell>
                           <TableCell>
-                            {lastSetoran 
+                            {lastSetoran
                               ? format(new Date(lastSetoran.tanggal), 'dd MMM yyyy', { locale: localeId })
                               : '-'
                             }

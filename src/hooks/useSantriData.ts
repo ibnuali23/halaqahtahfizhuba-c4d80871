@@ -8,6 +8,7 @@ export interface SantriDB {
   nama: string;
   kelas: 'Angkatan 1' | 'Angkatan 2' | 'Angkatan 3';
   musyrif: string;
+  wali_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -68,14 +69,14 @@ export function useHafalanSummary(tahun: number = 2025) {
       // Join the data
       const summaryWithSantri: HafalanSummary[] = (summaryData || []).map((summary) => {
         const santri = (santriData || []).find((s) => s.id === summary.santri_id);
-        const totalBulanan = 
+        const totalBulanan =
           Number(summary.juli || 0) +
           Number(summary.agustus || 0) +
           Number(summary.september || 0) +
           Number(summary.oktober || 0) +
           Number(summary.november || 0) +
           Number(summary.desember || 0);
-        
+
         return {
           santriId: summary.santri_id,
           santriNama: santri?.nama || 'Unknown',
@@ -138,12 +139,12 @@ export function useMusyrifStats() {
       };
     }
     acc[santri.musyrif].totalSantri += 1;
-    
+
     const hafalan = (hafalanData || []).find((h) => h.santriId === santri.id);
     if (hafalan) {
       acc[santri.musyrif].totalHafalan += hafalan.totalHafalan;
     }
-    
+
     return acc;
   }, {} as Record<string, { musyrif: string; totalSantri: number; totalHafalan: number }>);
 

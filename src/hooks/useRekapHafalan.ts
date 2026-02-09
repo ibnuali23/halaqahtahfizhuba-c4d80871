@@ -37,11 +37,13 @@ export function useRekapHafalan(bulan: string, tahun: number) {
     queryKey: ['rekap_hafalan', user?.id, bulan, tahun],
     queryFn: async () => {
       // Fetch santri list. If user is wali_santri, only fetch their children.
-      const santriQuery = supabase.from('santri').select('*').order('nama');
-      if (user?.role === 'wali_santri') {
-        santriQuery.eq('wali_id', user.id);
-      }
-      const { data: santriData, error: santriError } = await santriQuery;
+      const santriQuery = supabase.from('santri').select('*');
+      const filteredQuery = user?.role === 'wali_santri' 
+        ? (santriQuery as any).eq('wali_id', user.id)
+        : santriQuery;
+
+      const { data: santriData, error: santriError } = await filteredQuery.order('nama');
+
       if (santriError) throw santriError;
 
       // If there are no santri (e.g., wali has no children), return empty result
@@ -57,6 +59,13 @@ export function useRekapHafalan(bulan: string, tahun: number) {
           .eq('bulan', bulan)
           .eq('tahun', tahun)
           .order('tanggal', { ascending: false });
+
+        console.log('Setoran Debug:', {
+          bulan,
+          tahun,
+          count: _setoranData?.length,
+          data: _setoranData
+        });
 
         if (setoranError) throw setoranError;
         setoranData = _setoranData || [];
@@ -92,7 +101,7 @@ export function useRekapHafalan(bulan: string, tahun: number) {
 
           // Update ayat terakhir dan tanggal terakhir (setoran sudah diurutkan desc)
           if (rekapMap[santriId].ayatTerakhir === '-') {
-            rekapMap[santriId].ayatTerakhir = setoran.surat 
+            rekapMap[santriId].ayatTerakhir = setoran.surat
               ? `${setoran.surat}: ${setoran.ayat || '-'}`
               : '-';
             rekapMap[santriId].tanggalTerakhir = setoran.tanggal;
@@ -169,13 +178,13 @@ export function useSetoranDetail(santriId: string, bulan: string, tahun: number)
       // Get recorder names if there are any recorded_by values
       const recorderIds = [...new Set((data || []).map(s => s.recorded_by).filter(Boolean))];
       let recorderMap: Record<string, string> = {};
-      
+
       if (recorderIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, nama')
           .in('user_id', recorderIds);
-        
+
         recorderMap = (profiles || []).reduce((acc, p) => {
           acc[p.user_id] = p.nama;
           return acc;

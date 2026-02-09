@@ -50,7 +50,7 @@ export default function RekapBulananPage() {
   const [filterKelas, setFilterKelas] = useState<string>('all');
   const [filterHalaqah, setFilterHalaqah] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Modal state
   const [selectedSantri, setSelectedSantri] = useState<{
     id: string;
@@ -133,10 +133,10 @@ export default function RekapBulananPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="font-serif text-3xl font-bold text-foreground">
-              {isWaliSantri ? '📖 Rekap Hafalan Anak Anda' : 'Rekap Hafalan Bulanan'}
+              {isWaliSantri ? '📖 Rekap Hafalan Santri' : 'Rekap Hafalan Bulanan'}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isWaliSantri 
+              {isWaliSantri
                 ? `Pantau hafalan anak Anda di bulan ${bulan} ${tahun}`
                 : `Rekap hafalan santri bulan ${bulan} ${tahun}`
               }
@@ -305,41 +305,37 @@ export default function RekapBulananPage() {
                 </Select>
               </div>
 
-              {!isWaliSantri && (
-                <>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Kelas</Label>
-                    <Select value={filterKelas} onValueChange={setFilterKelas}>
-                      <SelectTrigger className="w-[150px]">
-                        <SelectValue placeholder="Semua Kelas" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua Kelas</SelectItem>
-                        <SelectItem value="Angkatan 1">Angkatan 1</SelectItem>
-                        <SelectItem value="Angkatan 2">Angkatan 2</SelectItem>
-                        <SelectItem value="Angkatan 3">Angkatan 3</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Kelas</Label>
+                <Select value={filterKelas} onValueChange={setFilterKelas}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Semua Kelas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Kelas</SelectItem>
+                    <SelectItem value="Angkatan 1">Angkatan 1</SelectItem>
+                    <SelectItem value="Angkatan 2">Angkatan 2</SelectItem>
+                    <SelectItem value="Angkatan 3">Angkatan 3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                  <div className="space-y-1">
-                    <Label className="text-xs">Halaqah</Label>
-                    <Select value={filterHalaqah} onValueChange={setFilterHalaqah}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Semua Halaqah" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua Halaqah</SelectItem>
-                        {halaqahNames.map((name) => (
-                          <SelectItem key={name} value={name}>
-                            {name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
+              <div className="space-y-1">
+                <Label className="text-xs">Halaqah</Label>
+                <Select value={filterHalaqah} onValueChange={setFilterHalaqah}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Semua Halaqah" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Halaqah</SelectItem>
+                    {halaqahNames.map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -376,7 +372,7 @@ export default function RekapBulananPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredData.map((h, index) => (
-                      <TableRow 
+                      <TableRow
                         key={h.santriId}
                         className={h.isActive ? '' : 'bg-muted/30'}
                       >
@@ -403,7 +399,7 @@ export default function RekapBulananPage() {
                         </TableCell>
                         <TableCell className="text-sm">{h.ayatTerakhir}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {h.tanggalTerakhir !== '-' 
+                          {h.tanggalTerakhir !== '-'
                             ? format(new Date(h.tanggalTerakhir), 'd MMM yyyy', { locale: id })
                             : '-'
                           }
