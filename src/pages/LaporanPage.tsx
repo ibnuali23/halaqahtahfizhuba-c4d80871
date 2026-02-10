@@ -18,55 +18,75 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useHafalanSummary } from '@/hooks/useSantriData';
 import { useAuth } from '@/contexts/AuthContext';
-import { hafalanSummary as staticHafalanSummary, getHafalanByMusyrif, getHafalanByKelas } from '@/data/santriData';
-import { Download, Printer, Loader2 } from 'lucide-react';
+import { useRekapHafalan, bulanList, getCurrentBulan } from '@/hooks/useRekapHafalan';
+import { Download, Printer, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-const months = [
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
-];
+const months = bulanList;
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i); // 5 years back, current, 5 years forward
 
 export default function LaporanPage() {
   const { user } = useAuth();
-  const { data: dbHafalanSummary, isLoading } = useHafalanSummary();
-  const [selectedMonth, setSelectedMonth] = useState('November');
-  const [selectedYear] = useState('2025');
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentBulan());
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  // Use database data if available, otherwise fall back to static data
-  // Filter static data based on user role
-  const baseData = dbHafalanSummary?.length 
-    ? dbHafalanSummary 
-    : user?.role === 'admin' 
-      ? staticHafalanSummary
-      : staticHafalanSummary.filter(s => s.musyrif === user?.musyrifNama);
+  const { data: rekapData, isLoading } = useRekapHafalan(selectedMonth, selectedYear);
 
-  // Calculate stats based on filtered data
-  const hafalanByMusyrif = user?.role === 'admin' 
-    ? getHafalanByMusyrif() 
-    : getHafalanByMusyrif().filter(m => m.musyrif === user?.musyrifNama);
-    
-  const hafalanByKelas = getHafalanByKelas();
+  // monthlyData now comes from rekapData.rekap
+  const monthlyData = rekapData?.rekap || [];
 
-  // Calculate monthly data
-  const getMonthlyData = (month: string) => {
-    const monthKey = month.toLowerCase() as keyof typeof baseData[0];
-    return baseData.map((s) => ({
-      ...s,
-      bulanIni: (s[monthKey] as number) || 0,
+  // Calculate stats based on rekap data
+  const totalBulanIni = rekapData?.totalSetoran || 0;
+  const totalSantri = rekapData?.totalSantri || 0;
+  const santriAktif = rekapData?.santriAktif || 0;
+  const rataRata = totalSantri > 0 ? (totalBulanIni / totalSantri).toFixed(1) : '0';
+
+  // Target achievement (using same logic: 12 pages/month)
+  const tercapai = monthlyData.filter((s) => s.totalHalamanBulan >= 12).length;
+
+  // Group data for summaries
+  const getHafalanByMusyrif = () => {
+    const grouped = monthlyData.reduce((acc, s) => {
+      if (!acc[s.halaqah]) {
+        acc[s.halaqah] = { totalHafalan: 0, jumlahSantri: 0, musyrif: s.halaqah };
+      }
+      acc[s.halaqah].totalHafalan += s.totalHalamanBulan;
+      acc[s.halaqah].jumlahSantri += 1;
+      return acc;
+    }, {} as Record<string, { totalHafalan: number; jumlahSantri: number; musyrif: string }>);
+
+    return Object.values(grouped).map(d => ({
+      ...d,
+      totalHafalan: d.totalHafalan.toFixed(1),
+      rataRata: (d.totalHafalan / d.jumlahSantri).toFixed(1)
     }));
   };
 
-  const monthlyData = getMonthlyData(selectedMonth);
-  const totalBulanIni = monthlyData.reduce((acc, s) => acc + s.bulanIni, 0);
-  const rataRata = monthlyData.length > 0 ? (totalBulanIni / monthlyData.length).toFixed(1) : '0';
-  const tercapai = monthlyData.filter((s) => s.bulanIni >= 12).length;
+  const getHafalanByKelas = () => {
+    const grouped = monthlyData.reduce((acc, s) => {
+      if (!acc[s.kelas]) {
+        acc[s.kelas] = { totalHafalan: 0, jumlahSantri: 0, kelas: s.kelas };
+      }
+      acc[s.kelas].totalHafalan += s.totalHalamanBulan;
+      acc[s.kelas].jumlahSantri += 1;
+      return acc;
+    }, {} as Record<string, { totalHafalan: number; jumlahSantri: number; kelas: string }>);
+
+    return Object.values(grouped).map(d => ({
+      ...d,
+      totalHafalan: d.totalHafalan.toFixed(1),
+      rataRata: (d.totalHafalan / d.jumlahSantri).toFixed(1)
+    }));
+  };
+
+  const hafalanByMusyrif = user?.role === 'admin'
+    ? getHafalanByMusyrif()
+    : getHafalanByMusyrif().filter(m => m.musyrif === user?.musyrifNama);
+
+  const hafalanByKelas = getHafalanByKelas();
 
   const handlePrint = () => {
     window.print();
@@ -75,15 +95,15 @@ export default function LaporanPage() {
 
   const handleExportPDF = () => {
     // Export as CSV for now
-    const headers = ['No', 'Nama Santri', 'Musyrif', 'Angkatan', `Hafalan ${selectedMonth}`, 'Total Hafalan', 'Status'];
+    const headers = ['No', 'Nama Santri', 'Halaqah', 'Angkatan', `Hafalan ${selectedMonth}`, 'Update Terakhir', 'Status'];
     const rows = monthlyData.map((item, index) => [
       index + 1,
       item.santriNama,
-      item.musyrif,
+      item.halaqah,
       item.kelas,
-      item.bulanIni,
-      item.totalHafalan,
-      item.bulanIni >= 12 ? 'Tercapai' : 'Tidak Tercapai',
+      item.totalHalamanBulan,
+      item.ayatTerakhir,
+      item.totalHalamanBulan >= 12 ? 'Tercapai' : 'Tidak Tercapai',
     ]);
 
     const csvContent = [
@@ -96,7 +116,7 @@ export default function LaporanPage() {
     link.href = URL.createObjectURL(blob);
     link.download = `laporan_${selectedMonth}_${selectedYear}.csv`;
     link.click();
-    
+
     toast.success('Laporan berhasil diekspor!');
   };
 
@@ -135,13 +155,26 @@ export default function LaporanPage() {
           </div>
           <div className="flex items-center gap-2">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[130px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {months.map((month) => (
                   <SelectItem key={month} value={month}>
-                    {month} {selectedYear}
+                    {month}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -217,7 +250,7 @@ export default function LaporanPage() {
                   Hafalan {selectedMonth}
                 </TableHead>
                 <TableHead className="text-primary-foreground font-semibold text-center">
-                  Total Hafalan
+                  Update Terakhir
                 </TableHead>
                 <TableHead className="text-primary-foreground font-semibold">Status</TableHead>
               </TableRow>
@@ -234,27 +267,27 @@ export default function LaporanPage() {
                   <TableRow key={item.santriId} className="hover:bg-accent/50">
                     <TableCell>{index + 1}</TableCell>
                     <TableCell className="font-medium">{item.santriNama}</TableCell>
-                    <TableCell>{item.musyrif}</TableCell>
+                    <TableCell>{item.halaqah}</TableCell>
                     <TableCell>
                       <Badge variant={getKelasBadgeVariant(item.kelas)}>
                         {item.kelas}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center font-semibold">
-                      {item.bulanIni} hal
+                      {item.totalHalamanBulan} hal
                     </TableCell>
-                    <TableCell className="text-center font-bold text-primary">
-                      {item.totalHafalan} Juz
+                    <TableCell className="text-center text-sm text-muted-foreground">
+                      {item.ayatTerakhir}
                     </TableCell>
                     <TableCell>
                       <Badge
                         className={cn(
-                          item.bulanIni >= 12
+                          item.totalHalamanBulan >= 12
                             ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
                             : 'bg-amber-100 text-amber-700 hover:bg-amber-100'
                         )}
                       >
-                        {item.bulanIni >= 12 ? 'Tercapai' : 'Tidak Tercapai'}
+                        {item.totalHalamanBulan >= 12 ? 'Tercapai' : 'Tidak Tercapai'}
                       </Badge>
                     </TableCell>
                   </TableRow>

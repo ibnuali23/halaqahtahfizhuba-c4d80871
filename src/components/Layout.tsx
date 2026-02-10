@@ -24,10 +24,8 @@ interface LayoutProps {
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/data-hafalan', label: 'Data Hafalan', icon: BookOpen },
+  { path: '/rekap-hafalan', label: 'Rekap Hafalan', icon: BookOpen },
   { path: '/input-hafalan', label: 'Input Hafalan', icon: FilePlus },
-  { path: '/rekap-bulanan', label: 'Rekap Bulanan', icon: FileText },
-  { path: '/rekap-hafalan', label: 'Rekap Hafalan', icon: BookOpen, waliOnly: true },
   { path: '/laporan', label: 'Laporan', icon: FileText },
   { path: '/absensi', label: 'Absensi Saya', icon: Clock, guruOnly: true },
   { path: '/admin-absensi', label: 'Laporan Absensi', icon: Clock, adminOnly: true },
@@ -52,8 +50,6 @@ export default function Layout({ children }: LayoutProps) {
     if (item.adminOnly && user?.role !== 'admin') return false;
     // Hide guru-only items from admin (admin has separate absensi management)
     if (item.guruOnly && user?.role === 'admin') return false;
-    // Hide wali-only items from non-wali
-    if (item.waliOnly && user?.role !== 'wali_santri') return false;
     return true;
   });
 
@@ -70,9 +66,7 @@ export default function Layout({ children }: LayoutProps) {
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             <Link to="/dashboard" className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-serif text-lg font-bold">م</span>
-              </div>
+              <img src="/logo.png" alt="Logo Ma'had Tahfizh" className="h-10 w-10 rounded-full object-cover" />
               <div className="hidden sm:block">
                 <h1 className="font-serif text-lg font-bold text-primary leading-tight">
                   Ma'had Tahfizh

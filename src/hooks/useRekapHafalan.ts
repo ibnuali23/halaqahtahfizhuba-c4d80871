@@ -36,13 +36,10 @@ export function useRekapHafalan(bulan: string, tahun: number) {
   const query = useQuery({
     queryKey: ['rekap_hafalan', user?.id, bulan, tahun],
     queryFn: async () => {
-      // Fetch santri list. If user is wali_santri, only fetch their children.
+      // Fetch all santri list.
       const santriQuery = supabase.from('santri').select('*');
-      const filteredQuery = user?.role === 'wali_santri' 
-        ? (santriQuery as any).eq('wali_id', user.id)
-        : santriQuery;
 
-      const { data: santriData, error: santriError } = await filteredQuery.order('nama');
+      const { data: santriData, error: santriError } = await santriQuery.order('nama');
 
       if (santriError) throw santriError;
 

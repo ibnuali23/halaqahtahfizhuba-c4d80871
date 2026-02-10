@@ -21,14 +21,14 @@ export default function LoginPage() {
     setIsLoading(true);
 
     const success = await login(email, password);
-    
+
     if (success) {
       toast.success('Login berhasil!');
       navigate('/dashboard');
     } else {
       toast.error('Email atau password salah');
     }
-    
+
     setIsLoading(false);
   };
 
@@ -46,9 +46,9 @@ export default function LoginPage() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mx-auto h-20 w-20 rounded-full bg-primary flex items-center justify-center mb-4 shadow-lg"
+            className="mx-auto h-20 w-20 rounded-full overflow-hidden mb-4 shadow-lg"
           >
-            <BookOpen className="h-10 w-10 text-primary-foreground" />
+            <img src="/logo.png" alt="Logo Ma'had Tahfizh" className="h-full w-full object-cover" />
           </motion.div>
           <h1 className="font-serif text-3xl font-bold text-primary">
             Ma'had Tahfizh

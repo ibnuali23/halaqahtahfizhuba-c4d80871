@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
+import Layout from '@/components/Layout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -18,324 +15,355 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { BookOpen, LogOut, Calendar, FileText } from 'lucide-react';
-import { format, getMonth, getYear, startOfMonth, endOfMonth } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
-
-const BULAN_OPTIONS = [
-  { value: '0', label: 'Januari' },
-  { value: '1', label: 'Februari' },
-  { value: '2', label: 'Maret' },
-  { value: '3', label: 'April' },
-  { value: '4', label: 'Mei' },
-  { value: '5', label: 'Juni' },
-  { value: '6', label: 'Juli' },
-  { value: '7', label: 'Agustus' },
-  { value: '8', label: 'September' },
-  { value: '9', label: 'Oktober' },
-  { value: '10', label: 'November' },
-  { value: '11', label: 'Desember' },
-];
-
-const TAHUN_OPTIONS = ['2024', '2025', '2026'];
-
-interface SetoranDetail {
-  id: string;
-  tanggal: string;
-  surat: string;
-  ayat: string;
-  jumlah_halaman: number;
-  catatan?: string;
-  santri?: {
-    nama: string;
-    kelas: string;
-    musyrif: string;
-  };
-}
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useRekapHafalan, getCurrentBulan, bulanList } from '@/hooks/useRekapHafalan';
+import { useSantri } from '@/hooks/useSantriData';
+import { usePengaturanSistem } from '@/hooks/usePengaturanSistem';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Loader2,
+  BookOpen,
+  Search,
+  Filter,
+  TrendingUp,
+  Eye,
+  Target,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
+import SetoranDetailModal from '@/components/rekap/SetoranDetailModal';
 
 export default function WaliSantriDashboard() {
-  const { user, logout } = useAuth();
-  const now = new Date();
-  const [selectedBulan, setSelectedBulan] = useState(String(getMonth(now)));
-  const [selectedTahun, setSelectedTahun] = useState(String(getYear(now)));
-  const [selectedSetoran, setSelectedSetoran] = useState<SetoranDetail | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const { user } = useAuth();
+  const [bulan, setBulan] = useState(getCurrentBulan());
+  const [tahun, setTahun] = useState(new Date().getFullYear());
+  const [filterKelas, setFilterKelas] = useState<string>('all');
+  const [filterHalaqah, setFilterHalaqah] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch setoran data for the selected month
-  const { data: setoranList, isLoading } = useQuery({
-    queryKey: ['wali-setoran-bulanan', selectedBulan, selectedTahun],
-    queryFn: async () => {
-      const bulanInt = parseInt(selectedBulan);
-      const tahunInt = parseInt(selectedTahun);
-      const startDate = startOfMonth(new Date(tahunInt, bulanInt, 1));
-      const endDate = endOfMonth(new Date(tahunInt, bulanInt, 1));
+  // Modal state
+  const [selectedSantri, setSelectedSantri] = useState<{
+    id: string;
+    nama: string;
+  } | null>(null);
 
-      const { data, error } = await supabase
-        .from('setoran_hafalan')
-        .select(`
-          *,
-          santri:santri_id (
-            nama,
-            kelas,
-            musyrif
-          )
-        `)
-        .gte('tanggal', format(startDate, 'yyyy-MM-dd'))
-        .lte('tanggal', format(endDate, 'yyyy-MM-dd'))
-        .order('tanggal', { ascending: false });
+  const { data: rekapData, isLoading } = useRekapHafalan(bulan, tahun);
+  const { data: santriData } = useSantri();
+  const { settings } = usePengaturanSistem();
 
-      if (error) throw error;
-      return data as SetoranDetail[];
-    },
-  });
+  // Get unique halaqah/musyrif names
+  const halaqahNames = Array.from(new Set(santriData?.map((s) => s.musyrif) || []));
 
-  // Calculate total pages for the month
-  const totalHalaman = setoranList?.reduce((acc, s) => acc + (s.jumlah_halaman || 0), 0) || 0;
-  const totalSetoran = setoranList?.length || 0;
+  // Filter data
+  let filteredData = rekapData?.rekap || [];
 
-  const handleLogout = async () => {
-    await logout();
+  if (filterKelas !== 'all') {
+    filteredData = filteredData.filter((h) => h.kelas === filterKelas);
+  }
+
+  if (filterHalaqah !== 'all') {
+    filteredData = filteredData.filter((h) => h.halaqah === filterHalaqah);
+  }
+
+  if (searchQuery) {
+    const query = searchQuery.toLowerCase();
+    filteredData = filteredData.filter((h) =>
+      h.santriNama.toLowerCase().includes(query)
+    );
+  }
+
+  // Calculate statistics
+  const totalSetoran = filteredData.reduce((acc, h) => acc + h.totalHalamanBulan, 0);
+  const totalSantri = filteredData.length;
+  const targetBulanan = settings?.target_hafalan_bulanan || 12;
+  const progressPercentage = totalSantri > 0
+    ? Math.min((totalSetoran / (totalSantri * targetBulanan)) * 100, 100)
+    : 0;
+
+  const openDetailModal = (santriId: string, santriNama: string) => {
+    setSelectedSantri({ id: santriId, nama: santriNama });
   };
-
-  const handleRowClick = (setoran: SetoranDetail) => {
-    setSelectedSetoran(setoran);
-    setIsDetailOpen(true);
-  };
-
-  const selectedBulanLabel = BULAN_OPTIONS.find(b => b.value === selectedBulan)?.label || '';
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="font-serif text-xl font-bold text-primary">
-                  Ma'had Tahfizh Utsman bin Affan
-                </h1>
-                <p className="text-sm text-muted-foreground">Portal Wali Santri</p>
-              </div>
-            </div>
-            <Button variant="outline" onClick={handleLogout} className="gap-2">
-              <LogOut size={16} />
-              Keluar
-            </Button>
+    <Layout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-3xl font-bold text-foreground">
+              📖 Rekap Hafalan Santri
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Pantau hafalan santri di bulan {bulan} {tahun}
+            </p>
           </div>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-6">
-        {/* Page Title */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <h2 className="font-serif text-2xl font-bold text-foreground flex items-center gap-2">
-            📘 Rekap Setoran Hafalan Bulanan
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            Lihat semua setoran hafalan santri untuk bulan yang dipilih
-          </p>
-        </motion.div>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="border-l-4 border-l-primary">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-primary/10">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-primary">{totalSetoran.toFixed(1)}</p>
+                    <p className="text-xs text-muted-foreground">Total Halaman Bulan Ini</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-        {/* Month/Year Filter & Stats */}
-        <Card className="mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="border-l-4 border-l-accent">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-accent/20">
+                    <TrendingUp className="h-5 w-5 text-accent-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{filteredData.reduce((acc, h) => acc + h.jumlahSetoran, 0)}</p>
+                    <p className="text-xs text-muted-foreground">Jumlah Setoran</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="border-l-4 border-l-secondary">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-secondary/10">
+                    <Target className="h-5 w-5 text-secondary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-secondary">{targetBulanan}</p>
+                    <p className="text-xs text-muted-foreground">Target/Santri</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Progress Bar */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Progres Hafalan Bulan {bulan}</span>
+              <span className="text-sm text-muted-foreground">{progressPercentage.toFixed(1)}%</span>
+            </div>
+            <Progress value={progressPercentage} className="h-3" />
+            <p className="text-xs text-muted-foreground mt-2">
+              {totalSetoran.toFixed(1)} dari {(totalSantri * targetBulanan).toFixed(0)} halaman target
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Filters */}
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Pilih Periode
+            <CardTitle className="font-serif text-lg flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filter Data
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari nama santri..."
+                    className="pl-8"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label className="text-sm font-medium">Bulan</label>
-                <Select value={selectedBulan} onValueChange={setSelectedBulan}>
-                  <SelectTrigger className="w-[150px]">
+                <Label className="text-xs">Bulan</Label>
+                <Select value={bulan} onValueChange={setBulan}>
+                  <SelectTrigger className="w-[130px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {BULAN_OPTIONS.map((b) => (
-                      <SelectItem key={b.value} value={b.value}>
-                        {b.label}
+                    {bulanList.map((b) => (
+                      <SelectItem key={b} value={b}>
+                        {b}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-1">
-                <label className="text-sm font-medium">Tahun</label>
-                <Select value={selectedTahun} onValueChange={setSelectedTahun}>
+                <Label className="text-xs">Tahun</Label>
+                <Select value={tahun.toString()} onValueChange={(v) => setTahun(parseInt(v))}>
                   <SelectTrigger className="w-[100px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TAHUN_OPTIONS.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
+                    <SelectItem value="2024">2024</SelectItem>
+                    <SelectItem value="2025">2025</SelectItem>
+                    <SelectItem value="2026">2026</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Kelas</Label>
+                <Select value={filterKelas} onValueChange={setFilterKelas}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Semua Kelas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Kelas</SelectItem>
+                    <SelectItem value="Angkatan 1">Angkatan 1</SelectItem>
+                    <SelectItem value="Angkatan 2">Angkatan 2</SelectItem>
+                    <SelectItem value="Angkatan 3">Angkatan 3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Halaqah</Label>
+                <Select value={filterHalaqah} onValueChange={setFilterHalaqah}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Semua Halaqah" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Halaqah</SelectItem>
+                    {halaqahNames.map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex-1" />
-              <div className="flex gap-4">
-                <div className="text-center px-4 py-2 bg-primary/10 rounded-lg">
-                  <p className="text-2xl font-bold text-primary">{totalSetoran}</p>
-                  <p className="text-xs text-muted-foreground">Total Setoran</p>
-                </div>
-                <div className="text-center px-4 py-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                  <p className="text-2xl font-bold text-green-700 dark:text-green-300">{totalHalaman.toFixed(1)}</p>
-                  <p className="text-xs text-muted-foreground">Total Halaman</p>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Setoran Table */}
+        {/* Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif">
-              Daftar Setoran - {selectedBulanLabel} {selectedTahun}
-            </CardTitle>
-            <CardDescription>
-              Klik baris untuk melihat detail setoran
-            </CardDescription>
+            <CardTitle className="font-serif">Data Rekap Hafalan - {bulan} {tahun}</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Nama Santri</TableHead>
-                    <TableHead>Surat</TableHead>
-                    <TableHead>Ayat</TableHead>
-                    <TableHead>Halaman</TableHead>
-                    <TableHead>Guru Pembimbing</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredData.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Belum ada data hafalan di bulan {bulan} {tahun}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                      </TableCell>
+                      <TableHead className="w-12">No</TableHead>
+                      <TableHead>Nama Santri</TableHead>
+                      <TableHead>Halaqah</TableHead>
+                      <TableHead className="text-center">Total Halaman</TableHead>
+                      <TableHead className="text-center">Jumlah Setoran</TableHead>
+                      <TableHead>Ayat Terakhir</TableHead>
+                      <TableHead>Tanggal Terakhir</TableHead>
+                      <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
-                  ) : setoranList?.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>Belum ada setoran di bulan {selectedBulanLabel} {selectedTahun}</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    setoranList?.map((setoran) => (
+                  </TableHeader>
+                  <TableBody>
+                    {filteredData.map((h, index) => (
                       <TableRow
-                        key={setoran.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleRowClick(setoran)}
+                        key={h.santriId}
+                        className={h.isActive ? '' : 'bg-muted/30'}
                       >
+                        <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell>
-                          {format(new Date(setoran.tanggal), 'dd MMM yyyy', { locale: localeId })}
+                          <div className="flex items-center gap-2">
+                            {h.isActive && (
+                              <span className="w-2 h-2 rounded-full bg-primary" />
+                            )}
+                            <div>
+                              <p className="font-medium">{h.santriNama}</p>
+                              <Badge variant="outline" className="text-xs">{h.kelas}</Badge>
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell className="font-medium">
-                          {setoran.santri?.nama || '-'}
+                        <TableCell>{h.halaqah}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="font-bold text-primary text-lg">
+                            {h.totalHalamanBulan}
+                          </span>
                         </TableCell>
-                        <TableCell>{setoran.surat || '-'}</TableCell>
-                        <TableCell>{setoran.ayat || '-'}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{setoran.jumlah_halaman}</Badge>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">{h.jumlahSetoran}x</Badge>
                         </TableCell>
-                        <TableCell>{setoran.santri?.musyrif || '-'}</TableCell>
+                        <TableCell className="text-sm">{h.ayatTerakhir}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {h.tanggalTerakhir !== '-'
+                            ? format(new Date(h.tanggalTerakhir), 'd MMM yyyy', { locale: id })
+                            : '-'
+                          }
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => openDetailModal(h.santriId, h.santriNama)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            Detail
+                          </Button>
+                        </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Summary Footer */}
-        {setoranList && setoranList.length > 0 && (
-          <div className="mt-4 p-4 bg-primary/5 rounded-lg text-center">
-            <p className="text-lg font-medium">
-              📊 Total Hafalan Bulan {selectedBulanLabel}: <span className="text-primary font-bold">{totalHalaman.toFixed(1)} Halaman</span>
-            </p>
-          </div>
+        {/* Detail Modal */}
+        {selectedSantri && (
+          <SetoranDetailModal
+            open={!!selectedSantri}
+            onOpenChange={(open) => !open && setSelectedSantri(null)}
+            santriId={selectedSantri.id}
+            santriNama={selectedSantri.nama}
+            bulan={bulan}
+            tahun={tahun}
+          />
         )}
-      </main>
-
-      {/* Detail Modal */}
-      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="font-serif">Detail Setoran Hafalan</DialogTitle>
-          </DialogHeader>
-          {selectedSetoran && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">📅 Tanggal Setor</p>
-                  <p className="font-medium">
-                    {format(new Date(selectedSetoran.tanggal), 'dd MMMM yyyy', { locale: localeId })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">👤 Nama Santri</p>
-                  <p className="font-medium">{selectedSetoran.santri?.nama || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">📖 Surat</p>
-                  <p className="font-medium">{selectedSetoran.surat || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">📝 Ayat</p>
-                  <p className="font-medium">{selectedSetoran.ayat || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">📄 Jumlah Halaman</p>
-                  <p className="font-medium text-lg text-primary">{selectedSetoran.jumlah_halaman}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">👨‍🏫 Guru Halaqah</p>
-                  <p className="font-medium">{selectedSetoran.santri?.musyrif || '-'}</p>
-                </div>
-              </div>
-              {selectedSetoran.catatan && (
-                <div>
-                  <p className="text-sm text-muted-foreground">💬 Catatan</p>
-                  <p className="font-medium">{selectedSetoran.catatan}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Footer */}
-      <footer className="border-t bg-card mt-8">
-        <div className="container mx-auto px-4 py-4 text-center text-sm text-muted-foreground">
-          © 2025 Ma'had Tahfizh Utsman bin Affan - Bangkinang Kota
-        </div>
-      </footer>
-    </div>
+      </div>
+    </Layout>
   );
 }
