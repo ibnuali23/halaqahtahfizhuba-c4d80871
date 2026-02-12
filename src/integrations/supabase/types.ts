@@ -207,6 +207,7 @@ export type Database = {
           semester_aktif: string
           tahun_ajaran: string
           target_hafalan_bulanan: number
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
@@ -218,6 +219,7 @@ export type Database = {
           semester_aktif?: string
           tahun_ajaran?: string
           target_hafalan_bulanan?: number
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
@@ -229,6 +231,7 @@ export type Database = {
           semester_aktif?: string
           tahun_ajaran?: string
           target_hafalan_bulanan?: number
+          updated_at?: string | null
         }
         Relationships: []
       }

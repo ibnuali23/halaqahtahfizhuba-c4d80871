@@ -59,14 +59,34 @@ export function useUpdateSantri() {
       id: string;
       updates: Partial<SantriDB>;
     }) => {
+      // Clean updates: exclude primary key and read-only fields
+      const { id: _id, created_at, updated_at, ...cleanUpdates } = updates as any;
+
+      const payload = { ...cleanUpdates };
+
       const { data, error } = await supabase
         .from('santri')
-        .update(updates)
+        .update(payload)
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        // If the error is about missing 'status' column, try one more time without it
+        if (error.message?.includes("'status' column") || error.details?.includes("status")) {
+          const { status, ...payloadWithoutStatus } = payload;
+          const { data: retryData, error: retryError } = await supabase
+            .from('santri')
+            .update(payloadWithoutStatus)
+            .eq('id', id)
+            .select()
+            .maybeSingle();
+
+          if (retryError) throw retryError;
+          return retryData;
+        }
+        throw error;
+      }
       return data;
     },
     onSuccess: () => {

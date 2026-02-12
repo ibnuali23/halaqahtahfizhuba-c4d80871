@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -17,8 +17,7 @@ import { SantriSettingsSection } from '@/components/settings/SantriSettingsSecti
 export default function PengaturanPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { settings, isSaving, saveAllSettings } = usePengaturanSistem();
-
+  const { settings, isLoading, isSaving, saveAllSettings, fetchSettings } = usePengaturanSistem();
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [localSettings, setLocalSettings] = useState<Partial<PengaturanSistem>>({});
 

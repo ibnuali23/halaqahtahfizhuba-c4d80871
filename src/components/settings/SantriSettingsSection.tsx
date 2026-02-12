@@ -63,9 +63,9 @@ export function SantriSettingsSection() {
             toast.success('✅ Perubahan berhasil disimpan');
             setIsDialogOpen(false);
             setEditingSantri(null);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating santri:', error);
-            toast.error('Gagal menyimpan perubahan');
+            toast.error('Gagal menyimpan perubahan: ' + (error.message || 'Error tidak diketahui'));
         }
     };
 

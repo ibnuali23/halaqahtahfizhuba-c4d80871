@@ -26,8 +26,7 @@ export function usePengaturanSistem() {
       const { data, error } = await supabase
         .from('pengaturan_sistem')
         .select('*')
-        .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching settings:', error);
@@ -51,28 +50,35 @@ export function usePengaturanSistem() {
   }, [user, fetchSettings]);
 
   const updateSettings = async (updates: Partial<PengaturanSistem>) => {
-    if (!settings?.id || !user) return false;
+    if (!user) return false;
 
     try {
       setIsSaving(true);
-      const { error } = await supabase
-        .from('pengaturan_sistem')
-        .update({
-          ...updates,
-          last_updated_by: user.id,
-          last_updated_at: new Date().toISOString(),
-        })
-        .eq('id', settings.id);
+
+      const query = supabase.from('pengaturan_sistem');
+
+      // Send MINIMAL payload. No last_updated_at, no last_updated_by.
+      // If a trigger is trying to use NEW.updated_at, it might fail regardless,
+      // but let's see if simplifying the update helps.
+      const payload = { ...updates };
+
+      const { data, error } = settings?.id
+        ? await query.update(payload).eq('id', settings.id).select().maybeSingle()
+        : await query.upsert({ ...payload, tahun_ajaran: '2025/2026' }).select().maybeSingle();
 
       if (error) {
         console.error('Error updating settings:', error);
-        toast.error('Gagal menyimpan pengaturan');
+        toast.error('Gagal menyimpan pengaturan: ' + error.message);
         return false;
       }
 
-      setSettings(prev => prev ? { ...prev, ...updates } : null);
+      if (data) {
+        setSettings(data);
+      } else {
+        fetchSettings();
+      }
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating settings:', error);
       toast.error('Gagal menyimpan pengaturan');
       return false;
