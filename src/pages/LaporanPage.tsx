@@ -20,12 +20,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRekapHafalan, bulanList, getCurrentBulan } from '@/hooks/useRekapHafalan';
+import { getWIBTime } from '@/hooks/useAbsensi';
 import { Download, Printer, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const months = bulanList;
-const currentYear = new Date().getFullYear();
+const currentYear = getWIBTime().getFullYear();
 const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i); // 5 years back, current, 5 years forward
 
 export default function LaporanPage() {
@@ -368,7 +369,7 @@ export default function LaporanPage() {
         {/* Signature */}
         <div className="flex justify-end print:block">
           <div className="text-center p-6">
-            <p>Bangkinang, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p>Bangkinang, {getWIBTime().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             <p className="mt-2 font-semibold">
               {user?.role === 'admin' ? 'KASI TAHFIZH' : 'GURU HALAQAH'}
             </p>

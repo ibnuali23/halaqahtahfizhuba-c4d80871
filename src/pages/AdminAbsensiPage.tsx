@@ -36,10 +36,13 @@ import {
   useDeleteHalaqahLocation,
   AbsensiRecord,
   WaktuHalaqah,
+  getWIBDate,
+  getWIBTime,
 } from '@/hooks/useAbsensi';
 import { useTodayAbsensiStats } from '@/hooks/useAbsensi';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   Loader2,
   Users,
@@ -349,6 +352,11 @@ function AbsensiRow({ record }: { record: AbsensiRecord }) {
         <Badge className={`${statusColors[record.status]} text-white`}>
           {statusLabels[record.status]}
         </Badge>
+        {record.is_present === false && (
+          <span className="text-[10px] block text-muted-foreground mt-0.5">
+            (Tidak Hadir)
+          </span>
+        )}
       </TableCell>
       <TableCell>
         {record.gps_latitude && record.gps_longitude ? (
@@ -390,8 +398,9 @@ function AbsensiRow({ record }: { record: AbsensiRecord }) {
 
 export default function AdminAbsensiPage() {
   const { user } = useAuth();
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
-  const [year, setYear] = useState(new Date().getFullYear());
+  const nowWib = getWIBTime();
+  const [month, setMonth] = useState(nowWib.getMonth() + 1);
+  const [year, setYear] = useState(nowWib.getFullYear());
   const [filterGuru, setFilterGuru] = useState<string>('all');
   const [filterWaktu, setFilterWaktu] = useState<string>('all');
 
@@ -400,11 +409,11 @@ export default function AdminAbsensiPage() {
 
   // Filter data
   let filteredData = absensiData || [];
-  
+
   if (filterGuru !== 'all') {
     filteredData = filteredData.filter((a) => a.user_nama === filterGuru);
   }
-  
+
   if (filterWaktu !== 'all') {
     filteredData = filteredData.filter((a) => a.waktu_halaqah === filterWaktu);
   }
@@ -415,14 +424,14 @@ export default function AdminAbsensiPage() {
   // Create daily summary per guru (grouped by tanggal + user_nama)
   const dailySummary = useMemo(() => {
     if (!absensiData || absensiData.length === 0) return [];
-    
+
     const summaryMap = new Map<string, {
       tanggal: string;
       user_nama: string;
       subuh: AbsensiRecord | null;
       maghrib: AbsensiRecord | null;
     }>();
-    
+
     absensiData.forEach((record) => {
       const key = `${record.tanggal}_${record.user_nama}`;
       if (!summaryMap.has(key)) {
@@ -433,7 +442,7 @@ export default function AdminAbsensiPage() {
           maghrib: null,
         });
       }
-      
+
       const entry = summaryMap.get(key)!;
       if (record.waktu_halaqah === 'subuh') {
         entry.subuh = record;
@@ -441,8 +450,8 @@ export default function AdminAbsensiPage() {
         entry.maghrib = record;
       }
     });
-    
-    return Array.from(summaryMap.values()).sort((a, b) => 
+
+    return Array.from(summaryMap.values()).sort((a, b) =>
       new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
     );
   }, [absensiData]);
@@ -672,9 +681,14 @@ export default function AdminAbsensiPage() {
                             <div className="flex items-center gap-2">
                               <CheckCircle className="h-4 w-4 text-green-500" />
                               <div className="text-sm">
-                                <p className="font-medium text-green-600">Hadir</p>
+                                <p className={cn(
+                                  "font-medium",
+                                  summary.subuh.is_present !== false ? "text-green-600" : "text-amber-600"
+                                )}>
+                                  {statusLabels[summary.subuh.status]}
+                                </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {summary.subuh.waktu_check_in 
+                                  {summary.subuh.waktu_check_in
                                     ? format(new Date(summary.subuh.waktu_check_in), 'HH:mm')
                                     : '-'}
                                 </p>
@@ -692,9 +706,14 @@ export default function AdminAbsensiPage() {
                             <div className="flex items-center gap-2">
                               <CheckCircle className="h-4 w-4 text-green-500" />
                               <div className="text-sm">
-                                <p className="font-medium text-green-600">Hadir</p>
+                                <p className={cn(
+                                  "font-medium",
+                                  summary.maghrib.is_present !== false ? "text-green-600" : "text-amber-600"
+                                )}>
+                                  {statusLabels[summary.maghrib.status]}
+                                </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {summary.maghrib.waktu_check_in 
+                                  {summary.maghrib.waktu_check_in
                                     ? format(new Date(summary.maghrib.waktu_check_in), 'HH:mm')
                                     : '-'}
                                 </p>

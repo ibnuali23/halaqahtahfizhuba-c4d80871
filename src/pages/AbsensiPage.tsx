@@ -31,6 +31,8 @@ import {
   calculateDistance,
   AttendanceStatus,
   WaktuHalaqah,
+  getWIBDate,
+  getWIBTime,
 } from '@/hooks/useAbsensi';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -79,9 +81,8 @@ const WAKTU_RANGES: Record<WaktuHalaqah, { start: number; end: number; label: st
 };
 
 function isWithinAllowedTime(waktuHalaqah: WaktuHalaqah): boolean {
-  const now = new Date();
-  // Get WIB hour (UTC+7)
-  const wibHour = (now.getUTCHours() + 7) % 24;
+  const nowWib = getWIBTime();
+  const wibHour = nowWib.getHours();
   const range = WAKTU_RANGES[waktuHalaqah];
   return wibHour >= range.start && wibHour < range.end;
 }
@@ -96,11 +97,11 @@ interface LocationState {
   withinRadius: boolean;
 }
 
-function CheckInDialog({ 
-  onSuccess, 
-  subuhCheckedIn, 
-  maghribCheckedIn 
-}: { 
+function CheckInDialog({
+  onSuccess,
+  subuhCheckedIn,
+  maghribCheckedIn
+}: {
   onSuccess: () => void;
   subuhCheckedIn: boolean;
   maghribCheckedIn: boolean;
@@ -111,7 +112,7 @@ function CheckInDialog({
     if (!maghribCheckedIn) return 'maghrib';
     return 'subuh';
   };
-  
+
   const [waktuHalaqah, setWaktuHalaqah] = useState<WaktuHalaqah>(getDefaultWaktu());
   const [status, setStatus] = useState<AttendanceStatus>('present');
   const [keterangan, setKeterangan] = useState('');
@@ -126,7 +127,7 @@ function CheckInDialog({
     distance: null,
     withinRadius: true,
   });
-  
+
   const checkInMutation = useCheckIn();
   const { data: halaqahLocations } = useHalaqahLocations();
 
@@ -144,7 +145,7 @@ function CheckInDialog({
   useEffect(() => {
     if (open && !location.latitude) {
       setLocation((prev) => ({ ...prev, loading: true, error: null }));
-      
+
       if (!navigator.geolocation) {
         setLocation((prev) => ({
           ...prev,
@@ -157,18 +158,18 @@ function CheckInDialog({
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
-          
+
           // Get address
           const alamat = await reverseGeocode(latitude, longitude);
-          
+
           // Calculate distance from reference location
           const refLocation = halaqahLocations?.find(
             (loc) => loc.waktu_halaqah === waktuHalaqah
           );
-          
+
           let distance: number | null = null;
           let withinRadius = true;
-          
+
           if (refLocation) {
             distance = calculateDistance(
               latitude,
@@ -178,7 +179,7 @@ function CheckInDialog({
             );
             withinRadius = distance <= refLocation.radius_meter;
           }
-          
+
           setLocation({
             loading: false,
             error: null,
@@ -219,7 +220,7 @@ function CheckInDialog({
       const refLocation = halaqahLocations.find(
         (loc) => loc.waktu_halaqah === waktuHalaqah
       );
-      
+
       if (refLocation) {
         const distance = calculateDistance(
           location.latitude,
@@ -243,21 +244,27 @@ function CheckInDialog({
       toast.error(`Waktu halaqah tidak sesuai. ${waktuLabels[waktuHalaqah]} hanya dapat dilakukan antara ${range.label}`);
       return;
     }
-    
+
+    // Validate location only for "Hadir" status
+    if (status === 'present' && (!location.latitude || !location.longitude)) {
+      toast.error('Lokasi GPS wajib diisi untuk status Hadir. Pastikan GPS aktif.');
+      return;
+    }
+
     try {
       await checkInMutation.mutateAsync({
         waktu_halaqah: waktuHalaqah,
         status,
         keterangan,
-        latitude: location.latitude || undefined,
-        longitude: location.longitude || undefined,
-        alamat_lokasi: location.alamat || undefined,
+        latitude: status === 'present' ? (location.latitude || undefined) : undefined,
+        longitude: status === 'present' ? (location.longitude || undefined) : undefined,
+        alamat_lokasi: status === 'present' ? (location.alamat || undefined) : undefined,
       });
-      
+
       const locationInfo = location.withinRadius
         ? `(Lokasi: ${location.alamat || 'Terdeteksi'})`
         : `(Lokasi: ${location.alamat || 'Terdeteksi'} - Di luar area halaqah)`;
-      
+
       toast.success(`Check-in berhasil untuk ${waktuLabels[waktuHalaqah]} ${locationInfo}`);
       setOpen(false);
       onSuccess();
@@ -290,17 +297,16 @@ function CheckInDialog({
               onValueChange={(v) => setWaktuHalaqah(v as WaktuHalaqah)}
               className="grid grid-cols-2 gap-3"
             >
-              <div className={`relative flex items-center justify-center rounded-lg border-2 p-4 transition-all ${
-                waktuHalaqah === 'subuh' ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/30'
-              } ${subuhCheckedIn ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                <RadioGroupItem 
-                  value="subuh" 
-                  id="subuh" 
+              <div className={`relative flex items-center justify-center rounded-lg border-2 p-4 transition-all ${waktuHalaqah === 'subuh' ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/30'
+                } ${subuhCheckedIn ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                <RadioGroupItem
+                  value="subuh"
+                  id="subuh"
                   disabled={subuhCheckedIn}
                   className="sr-only"
                 />
-                <label 
-                  htmlFor="subuh" 
+                <label
+                  htmlFor="subuh"
                   className={`flex flex-col items-center gap-2 ${subuhCheckedIn ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <Sun className={`h-6 w-6 ${waktuHalaqah === 'subuh' ? 'text-primary' : 'text-amber-500'}`} />
@@ -314,17 +320,16 @@ function CheckInDialog({
                   )}
                 </label>
               </div>
-              <div className={`relative flex items-center justify-center rounded-lg border-2 p-4 transition-all ${
-                waktuHalaqah === 'maghrib' ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/30'
-              } ${maghribCheckedIn ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                <RadioGroupItem 
-                  value="maghrib" 
-                  id="maghrib" 
+              <div className={`relative flex items-center justify-center rounded-lg border-2 p-4 transition-all ${waktuHalaqah === 'maghrib' ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/30'
+                } ${maghribCheckedIn ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                <RadioGroupItem
+                  value="maghrib"
+                  id="maghrib"
                   disabled={maghribCheckedIn}
                   className="sr-only"
                 />
-                <label 
-                  htmlFor="maghrib" 
+                <label
+                  htmlFor="maghrib"
                   className={`flex flex-col items-center gap-2 ${maghribCheckedIn ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <Moon className={`h-6 w-6 ${waktuHalaqah === 'maghrib' ? 'text-primary' : 'text-indigo-500'}`} />
@@ -371,9 +376,8 @@ function CheckInDialog({
                   {location.alamat}
                 </p>
                 {location.distance !== null && (
-                  <div className={`flex items-center gap-2 text-sm ${
-                    location.withinRadius ? 'text-green-600' : 'text-amber-600'
-                  }`}>
+                  <div className={`flex items-center gap-2 text-sm ${location.withinRadius ? 'text-green-600' : 'text-amber-600'
+                    }`}>
                     {location.withinRadius ? (
                       <CheckCircle className="h-4 w-4" />
                     ) : (
@@ -452,7 +456,7 @@ interface TodaySessionCardProps {
 
 function TodaySessionCard({ waktuHalaqah, record, onCheckOut, isCheckingOut }: TodaySessionCardProps) {
   const Icon = waktuHalaqah === 'subuh' ? Sun : Moon;
-  
+
   return (
     <div className="p-4 rounded-lg border bg-card">
       <div className="flex items-center justify-between gap-2 mb-3">
@@ -468,7 +472,7 @@ function TodaySessionCard({ waktuHalaqah, record, onCheckOut, isCheckingOut }: T
           <Badge variant="outline">Belum Check-in</Badge>
         )}
       </div>
-      
+
       {record ? (
         <div className="space-y-2">
           <div className="flex items-center gap-4 text-sm">
@@ -489,20 +493,20 @@ function TodaySessionCard({ waktuHalaqah, record, onCheckOut, isCheckingOut }: T
               </span>
             </div>
           </div>
-          
+
           {record.alamat_lokasi && (
             <div className="flex items-start gap-1 text-xs text-muted-foreground">
               <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
               <span className="line-clamp-2">{record.alamat_lokasi}</span>
             </div>
           )}
-          
+
           {record.keterangan && (
             <p className="text-xs text-muted-foreground">
               {record.keterangan}
             </p>
           )}
-          
+
           {!record.waktu_check_out && (
             <Button
               variant="outline"
@@ -547,7 +551,7 @@ export default function AbsensiPage() {
     }
   };
 
-  const currentMonth = format(new Date(), 'MMMM yyyy', { locale: id });
+  const currentMonth = format(getWIBTime(), 'MMMM yyyy', { locale: id });
 
   if (loadingToday) {
     return (
@@ -584,8 +588,8 @@ export default function AbsensiPage() {
                 Status Hari Ini
               </CardTitle>
               {(!subuhRecord || !maghribRecord) && (
-                <CheckInDialog 
-                  onSuccess={refetch} 
+                <CheckInDialog
+                  onSuccess={refetch}
                   subuhCheckedIn={!!subuhRecord}
                   maghribCheckedIn={!!maghribRecord}
                 />
@@ -593,9 +597,9 @@ export default function AbsensiPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                {format(new Date(), 'EEEE, d MMMM yyyy', { locale: id })}
+                {format(getWIBTime(), 'EEEE, d MMMM yyyy', { locale: id })}
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <TodaySessionCard
                   waktuHalaqah="subuh"

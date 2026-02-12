@@ -12,6 +12,7 @@ export interface AbsensiRecord {
   waktu_check_in: string | null;
   waktu_check_out: string | null;
   status: AttendanceStatus;
+  is_present?: boolean;
   keterangan: string | null;
   photo_proof_url: string | null;
   gps_latitude: number | null;
@@ -84,6 +85,32 @@ export async function reverseGeocode(
   } catch {
     return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
   }
+}
+
+// Helper to get current date/time in WIB (Asia/Jakarta)
+export function getWIBTime(): Date {
+  // Create a date object for the current time
+  const now = new Date();
+  // Get the time in Jakarta
+  const jakartaTimeStr = now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+  return new Date(jakartaTimeStr);
+}
+
+export function getWIBTimestamp(): string {
+  // Returns a string that Supabase can parse as a timestamp
+  return new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+}
+
+export function getWIBDate(): string {
+  // Returns current date in YYYY-MM-DD format based on WIB
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(now);
 }
 
 export function useHalaqahLocations() {
@@ -200,7 +227,7 @@ export function useAllAbsensi(month?: number, year?: number) {
 
 export function useTodayAbsensi(waktuHalaqah?: WaktuHalaqah) {
   const { user } = useAuth();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getWIBDate();
 
   return useQuery({
     queryKey: ['today_absensi', user?.id, today, waktuHalaqah],
@@ -227,7 +254,6 @@ export function useTodayAbsensi(waktuHalaqah?: WaktuHalaqah) {
 export function useCheckIn() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const today = new Date().toISOString().split('T')[0];
 
   return useMutation({
     mutationFn: async (data: {
@@ -238,12 +264,17 @@ export function useCheckIn() {
       longitude?: number;
       alamat_lokasi?: string;
     }) => {
+      const wibDate = getWIBDate();
+      const wibTimestamp = getWIBTimestamp();
+      const isPresent = data.status === 'present' || !data.status;
+
       const { error } = await supabase.from('absensi_guru').insert({
         user_id: user!.id,
-        tanggal: today,
-        waktu_check_in: new Date().toISOString(),
+        tanggal: wibDate,
+        waktu_check_in: wibTimestamp,
         waktu_halaqah: data.waktu_halaqah,
         status: data.status || 'present',
+        is_present: isPresent,
         keterangan: data.keterangan || null,
         gps_latitude: data.latitude || null,
         gps_longitude: data.longitude || null,
@@ -264,15 +295,17 @@ export function useCheckIn() {
 export function useCheckOut() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const today = new Date().toISOString().split('T')[0];
 
   return useMutation({
     mutationFn: async (waktuHalaqah: WaktuHalaqah) => {
+      const wibDate = getWIBDate();
+      const wibTimestamp = getWIBTimestamp();
+
       const { error } = await supabase
         .from('absensi_guru')
-        .update({ waktu_check_out: new Date().toISOString() })
+        .update({ waktu_check_out: wibTimestamp })
         .eq('user_id', user!.id)
-        .eq('tanggal', today)
+        .eq('tanggal', wibDate)
         .eq('waktu_halaqah', waktuHalaqah);
 
       if (error) throw error;
@@ -308,11 +341,11 @@ export function useAbsensiSummary(month?: number, year?: number) {
 
 export function useTodayAbsensiStats() {
   const { user } = useAuth();
+  const today = getWIBDate();
 
   return useQuery({
-    queryKey: ['today_absensi_stats'],
+    queryKey: ['today_absensi_stats', today],
     queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
 
       const { data, error } = await supabase
         .from('absensi_guru')
