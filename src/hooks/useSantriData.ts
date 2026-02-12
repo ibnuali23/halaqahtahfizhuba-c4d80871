@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { HafalanSummary } from '@/types/hafalan';
@@ -9,6 +9,7 @@ export interface SantriDB {
   kelas: 'Angkatan 1' | 'Angkatan 2' | 'Angkatan 3';
   musyrif: string;
   wali_id?: string | null;
+  status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +45,34 @@ export function useSantri() {
       return data as SantriDB[];
     },
     enabled: !!user,
+  });
+}
+
+export function useUpdateSantri() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<SantriDB>;
+    }) => {
+      const { data, error } = await supabase
+        .from('santri')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['santri'] });
+      queryClient.invalidateQueries({ queryKey: ['hafalan_summary'] });
+    },
   });
 }
 

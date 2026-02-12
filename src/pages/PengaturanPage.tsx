@@ -12,12 +12,13 @@ import { usePengaturanSistem, PengaturanSistem } from '@/hooks/usePengaturanSist
 import { ChangePasswordDialog } from '@/components/settings/ChangePasswordDialog';
 import { DataExportImport } from '@/components/settings/DataExportImport';
 import { SystemSettingsSection } from '@/components/settings/SystemSettingsSection';
+import { SantriSettingsSection } from '@/components/settings/SantriSettingsSection';
 
 export default function PengaturanPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { settings, isSaving, saveAllSettings } = usePengaturanSistem();
-  
+
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [localSettings, setLocalSettings] = useState<Partial<PengaturanSistem>>({});
 
@@ -99,6 +100,8 @@ export default function PengaturanPage() {
               onSettingsChange={handleSettingsChange}
               localSettings={localSettings}
             />
+
+            <SantriSettingsSection />
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}

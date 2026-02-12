@@ -308,6 +308,8 @@ export type Database = {
           musyrif: string
           nama: string
           updated_at: string
+          status: string | null
+          wali_id: string | null
         }
         Insert: {
           created_at?: string
@@ -316,6 +318,8 @@ export type Database = {
           musyrif: string
           nama: string
           updated_at?: string
+          status?: string | null
+          wali_id?: string | null
         }
         Update: {
           created_at?: string
@@ -324,6 +328,8 @@ export type Database = {
           musyrif?: string
           nama?: string
           updated_at?: string
+          status?: string | null
+          wali_id?: string | null
         }
         Relationships: []
       }
