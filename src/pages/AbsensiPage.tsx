@@ -69,23 +69,11 @@ const statusColors: Record<AttendanceStatus, string> = {
   alfa: 'bg-red-500',
 };
 
+// Session labels for display
 const waktuLabels: Record<WaktuHalaqah, string> = {
   subuh: 'Halaqah Subuh',
   maghrib: 'Halaqah Maghrib',
 };
-
-// Time validation ranges (WIB = UTC+7)
-const WAKTU_RANGES: Record<WaktuHalaqah, { start: number; end: number; label: string }> = {
-  subuh: { start: 5, end: 7, label: '05:00 - 07:00 WIB' },
-  maghrib: { start: 18, end: 21, label: '18:00 - 21:00 WIB' },
-};
-
-function isWithinAllowedTime(waktuHalaqah: WaktuHalaqah): boolean {
-  const nowWib = getWIBTime();
-  const wibHour = nowWib.getHours();
-  const range = WAKTU_RANGES[waktuHalaqah];
-  return wibHour >= range.start && wibHour < range.end;
-}
 
 interface LocationState {
   loading: boolean;
@@ -117,7 +105,6 @@ function CheckInDialog({
   const [status, setStatus] = useState<AttendanceStatus>('present');
   const [keterangan, setKeterangan] = useState('');
   const [open, setOpen] = useState(false);
-  const [timeError, setTimeError] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationState>({
     loading: false,
     error: null,
@@ -130,16 +117,6 @@ function CheckInDialog({
 
   const checkInMutation = useCheckIn();
   const { data: halaqahLocations } = useHalaqahLocations();
-
-  // Validate time when waktu_halaqah changes
-  useEffect(() => {
-    if (!isWithinAllowedTime(waktuHalaqah)) {
-      const range = WAKTU_RANGES[waktuHalaqah];
-      setTimeError(`Waktu halaqah tidak sesuai. ${waktuLabels[waktuHalaqah]} hanya dapat dilakukan antara ${range.label}`);
-    } else {
-      setTimeError(null);
-    }
-  }, [waktuHalaqah]);
 
   // Get current location when dialog opens
   useEffect(() => {
@@ -238,12 +215,6 @@ function CheckInDialog({
   }, [waktuHalaqah, halaqahLocations, location.latitude, location.longitude]);
 
   const handleCheckIn = async () => {
-    // Validate time before check-in
-    if (!isWithinAllowedTime(waktuHalaqah)) {
-      const range = WAKTU_RANGES[waktuHalaqah];
-      toast.error(`Waktu halaqah tidak sesuai. ${waktuLabels[waktuHalaqah]} hanya dapat dilakukan antara ${range.label}`);
-      return;
-    }
 
     // Validate location only for "Hadir" status
     if (status === 'present' && (!location.latitude || !location.longitude)) {
@@ -311,7 +282,6 @@ function CheckInDialog({
                 >
                   <Sun className={`h-6 w-6 ${waktuHalaqah === 'subuh' ? 'text-primary' : 'text-amber-500'}`} />
                   <span className="font-medium text-sm">Halaqah Subuh</span>
-                  <span className="text-xs text-muted-foreground">05:00 - 07:00</span>
                   {subuhCheckedIn && (
                     <span className="text-xs text-green-600 flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" />
@@ -334,7 +304,6 @@ function CheckInDialog({
                 >
                   <Moon className={`h-6 w-6 ${waktuHalaqah === 'maghrib' ? 'text-primary' : 'text-indigo-500'}`} />
                   <span className="font-medium text-sm">Halaqah Maghrib</span>
-                  <span className="text-xs text-muted-foreground">18:00 - 21:00</span>
                   {maghribCheckedIn && (
                     <span className="text-xs text-green-600 flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" />
@@ -345,14 +314,6 @@ function CheckInDialog({
               </div>
             </RadioGroup>
           </div>
-
-          {/* Time validation warning */}
-          {timeError && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <span>{timeError}</span>
-            </div>
-          )}
 
           {/* Location Status */}
           <div className="p-3 rounded-lg bg-accent/50 space-y-2">
@@ -425,7 +386,7 @@ function CheckInDialog({
           <Button
             onClick={handleCheckIn}
             className="w-full gap-2"
-            disabled={checkInMutation.isPending || location.loading || !!timeError}
+            disabled={checkInMutation.isPending || location.loading}
           >
             {checkInMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -21,7 +21,6 @@ export type Database = {
           gps_latitude: number | null
           gps_longitude: number | null
           id: string
-          is_present: boolean | null
           keterangan: string | null
           photo_proof_url: string | null
           status: Database["public"]["Enums"]["attendance_status"]
@@ -38,7 +37,6 @@ export type Database = {
           gps_latitude?: number | null
           gps_longitude?: number | null
           id?: string
-          is_present?: boolean | null
           keterangan?: string | null
           photo_proof_url?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]
@@ -55,7 +53,6 @@ export type Database = {
           gps_latitude?: number | null
           gps_longitude?: number | null
           id?: string
-          is_present?: boolean | null
           keterangan?: string | null
           photo_proof_url?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]

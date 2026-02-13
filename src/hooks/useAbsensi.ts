@@ -12,7 +12,6 @@ export interface AbsensiRecord {
   waktu_check_in: string | null;
   waktu_check_out: string | null;
   status: AttendanceStatus;
-  is_present?: boolean;
   keterangan: string | null;
   photo_proof_url: string | null;
   gps_latitude: number | null;
@@ -43,6 +42,45 @@ export interface HalaqahLocation {
   longitude: number;
   radius_meter: number;
   alamat: string | null;
+}
+
+const MERGE_PREFIX = "_SESSION_DATA_:";
+
+function unmergeRecords(record: any): AbsensiRecord[] {
+  if (!record) return [];
+
+  const records: AbsensiRecord[] = [record as AbsensiRecord];
+
+  if (record.keterangan && record.keterangan.includes(MERGE_PREFIX)) {
+    try {
+      const parts = record.keterangan.split(MERGE_PREFIX);
+      const mainKeterangan = parts[0].trim();
+      const mergedData = JSON.parse(parts[1]);
+
+      // Update main record's keterangan to remove the JSON part
+      records[0].keterangan = mainKeterangan || null;
+
+      // Add the merged record
+      records.push({
+        ...record,
+        id: `${record.id}_merged`,
+        waktu_check_in: mergedData.waktu_check_in,
+        waktu_check_out: mergedData.waktu_check_out || null,
+        status: mergedData.status,
+        waktu_halaqah: mergedData.waktu_halaqah,
+        gps_latitude: mergedData.gps_latitude,
+        gps_longitude: mergedData.gps_longitude,
+        alamat_lokasi: mergedData.alamat_lokasi,
+        keterangan: mergedData.keterangan || null,
+        created_at: record.created_at,
+        updated_at: record.updated_at
+      });
+    } catch (e) {
+      console.error("Failed to parse merged absensi data:", e);
+    }
+  }
+
+  return records;
 }
 
 // Haversine formula to calculate distance between two coordinates
@@ -97,8 +135,9 @@ export function getWIBTime(): Date {
 }
 
 export function getWIBTimestamp(): string {
-  // Returns a string that Supabase can parse as a timestamp
-  return new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+  // Returns a standard ISO string that Supabase interprets as UTC.
+  // The frontend will then correctly convert this to local time (WIB) for display.
+  return new Date().toISOString();
 }
 
 export function getWIBDate(): string {
@@ -152,7 +191,9 @@ export function useAbsensi(month?: number, year?: number) {
         .order('tanggal', { ascending: false });
 
       if (error) throw error;
-      return data as AbsensiRecord[];
+
+      // Flatten merged records
+      return (data || []).flatMap(unmergeRecords);
     },
     enabled: !!user,
   });
@@ -189,34 +230,38 @@ export function useAllAbsensi(month?: number, year?: number) {
         (profiles || []).map((p) => [p.user_id, p.nama])
       );
 
-      const records: AbsensiRecord[] = (absensiData || []).map((item) => {
-        // Calculate distance from reference location if GPS data exists
-        let distance_from_ref: number | undefined;
-        let is_within_radius = true;
+      const records: AbsensiRecord[] = (absensiData || []).flatMap((item) => {
+        // Unmerge first to get all sessions
+        const items = unmergeRecords(item);
 
-        if (item.gps_latitude && item.gps_longitude && item.waktu_halaqah && locations) {
-          const refLocation = locations.find(
-            (loc) => loc.waktu_halaqah === item.waktu_halaqah
-          );
-          if (refLocation) {
-            distance_from_ref = calculateDistance(
-              item.gps_latitude,
-              item.gps_longitude,
-              refLocation.latitude,
-              refLocation.longitude
+        return items.map(sessionItem => {
+          let distance_from_ref: number | undefined;
+          let is_within_radius = true;
+
+          if (sessionItem.gps_latitude && sessionItem.gps_longitude && sessionItem.waktu_halaqah && locations) {
+            const refLocation = locations.find(
+              (loc) => loc.waktu_halaqah === sessionItem.waktu_halaqah
             );
-            is_within_radius = distance_from_ref <= refLocation.radius_meter;
+            if (refLocation) {
+              distance_from_ref = calculateDistance(
+                sessionItem.gps_latitude,
+                sessionItem.gps_longitude,
+                refLocation.latitude,
+                refLocation.longitude
+              );
+              is_within_radius = distance_from_ref <= refLocation.radius_meter;
+            }
           }
-        }
 
-        return {
-          ...item,
-          status: item.status as AttendanceStatus,
-          waktu_halaqah: item.waktu_halaqah as WaktuHalaqah | null,
-          user_nama: profileMap.get(item.user_id) || 'Unknown',
-          distance_from_ref,
-          is_within_radius,
-        };
+          return {
+            ...sessionItem,
+            status: sessionItem.status as AttendanceStatus,
+            waktu_halaqah: sessionItem.waktu_halaqah as WaktuHalaqah | null,
+            user_nama: profileMap.get(sessionItem.user_id) || 'Unknown',
+            distance_from_ref,
+            is_within_radius,
+          };
+        });
       });
 
       return records;
@@ -245,7 +290,13 @@ export function useTodayAbsensi(waktuHalaqah?: WaktuHalaqah) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as AbsensiRecord[];
+
+      // Flatten merged records and filter by waktuHalaqah if requested
+      const allRecords = (data || []).flatMap(unmergeRecords);
+      if (waktuHalaqah) {
+        return allRecords.filter(r => r.waktu_halaqah === waktuHalaqah);
+      }
+      return allRecords;
     },
     enabled: !!user,
   });
@@ -266,15 +317,66 @@ export function useCheckIn() {
     }) => {
       const wibDate = getWIBDate();
       const wibTimestamp = getWIBTimestamp();
-      const isPresent = data.status === 'present' || !data.status;
 
+      // Check if a record already exists for today
+      const { data: existing } = await supabase
+        .from('absensi_guru')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('tanggal', wibDate)
+        .maybeSingle();
+
+      if (existing) {
+        // If it's the same session, just update it (overwrite)
+        if (existing.waktu_halaqah === data.waktu_halaqah) {
+          const { error } = await supabase
+            .from('absensi_guru')
+            .update({
+              waktu_check_in: wibTimestamp,
+              waktu_check_out: null, // Reset checkout if re-checking in
+              status: data.status || 'present',
+              keterangan: data.keterangan || existing.keterangan,
+              gps_latitude: data.latitude || null,
+              gps_longitude: data.longitude || null,
+              alamat_lokasi: data.alamat_lokasi || null,
+            })
+            .eq('id', existing.id);
+          if (error) throw error;
+          return;
+        }
+
+        // If it's a different session, merge it into keterangan
+        const sessionData = {
+          waktu_halaqah: data.waktu_halaqah,
+          waktu_check_in: wibTimestamp,
+          waktu_check_out: null, // Ensure new session has no checkout
+          status: data.status || 'present',
+          keterangan: data.keterangan || null,
+          gps_latitude: data.latitude || null,
+          gps_longitude: data.longitude || null,
+          alamat_lokasi: data.alamat_lokasi || null,
+        };
+
+        const newKeterangan = `${existing.keterangan || ''} ${MERGE_PREFIX}${JSON.stringify(sessionData)}`.trim();
+
+        const { error } = await supabase
+          .from('absensi_guru')
+          .update({
+            keterangan: newKeterangan,
+          })
+          .eq('id', existing.id);
+
+        if (error) throw error;
+        return;
+      }
+
+      // No existing record, normal insert
       const { error } = await supabase.from('absensi_guru').insert({
         user_id: user!.id,
         tanggal: wibDate,
         waktu_check_in: wibTimestamp,
         waktu_halaqah: data.waktu_halaqah,
         status: data.status || 'present',
-        is_present: isPresent,
         keterangan: data.keterangan || null,
         gps_latitude: data.latitude || null,
         gps_longitude: data.longitude || null,
@@ -301,14 +403,41 @@ export function useCheckOut() {
       const wibDate = getWIBDate();
       const wibTimestamp = getWIBTimestamp();
 
-      const { error } = await supabase
+      // Get existing record to see where to update checkout
+      const { data: existing } = await supabase
         .from('absensi_guru')
-        .update({ waktu_check_out: wibTimestamp })
+        .select('*')
         .eq('user_id', user!.id)
         .eq('tanggal', wibDate)
-        .eq('waktu_halaqah', waktuHalaqah);
+        .maybeSingle();
 
-      if (error) throw error;
+      if (!existing) return;
+
+      // If main record matches the session
+      if (existing.waktu_halaqah === waktuHalaqah) {
+        const { error } = await supabase
+          .from('absensi_guru')
+          .update({ waktu_check_out: wibTimestamp })
+          .eq('id', existing.id);
+        if (error) throw error;
+        return;
+      }
+
+      // If it's in the merged data
+      if (existing.keterangan && existing.keterangan.includes(MERGE_PREFIX)) {
+        const parts = existing.keterangan.split(MERGE_PREFIX);
+        const mergedData = JSON.parse(parts[1]);
+
+        if (mergedData.waktu_halaqah === waktuHalaqah) {
+          mergedData.waktu_check_out = wibTimestamp;
+          const newKeterangan = `${parts[0].trim()} ${MERGE_PREFIX}${JSON.stringify(mergedData)}`.trim();
+
+          const { error } = await supabase
+            .from('absensi_guru')
+            .update({ keterangan: newKeterangan })
+            .eq('id', existing.id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['today_absensi'] });
@@ -355,11 +484,14 @@ export function useTodayAbsensiStats() {
 
       if (error) throw error;
 
-      const subuhCount = data?.filter((a) => a.waktu_halaqah === 'subuh').length || 0;
-      const maghribCount = data?.filter((a) => a.waktu_halaqah === 'maghrib').length || 0;
+      // Extract all sessions (including merged ones)
+      const allData = (data || []).flatMap(unmergeRecords);
+
+      const subuhCount = allData.filter((a) => a.waktu_halaqah === 'subuh').length || 0;
+      const maghribCount = allData.filter((a) => a.waktu_halaqah === 'maghrib').length || 0;
 
       return {
-        total: data?.length || 0,
+        total: allData.length,
         subuh: subuhCount,
         maghrib: maghribCount,
       };

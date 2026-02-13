@@ -352,7 +352,7 @@ function AbsensiRow({ record }: { record: AbsensiRecord }) {
         <Badge className={`${statusColors[record.status]} text-white`}>
           {statusLabels[record.status]}
         </Badge>
-        {record.is_present === false && (
+        {record.status !== 'present' && (
           <span className="text-[10px] block text-muted-foreground mt-0.5">
             (Tidak Hadir)
           </span>
@@ -683,7 +683,7 @@ export default function AdminAbsensiPage() {
                               <div className="text-sm">
                                 <p className={cn(
                                   "font-medium",
-                                  summary.subuh.is_present !== false ? "text-green-600" : "text-amber-600"
+                                  summary.subuh.status === 'present' ? "text-green-600" : "text-amber-600"
                                 )}>
                                   {statusLabels[summary.subuh.status]}
                                 </p>
@@ -708,7 +708,7 @@ export default function AdminAbsensiPage() {
                               <div className="text-sm">
                                 <p className={cn(
                                   "font-medium",
-                                  summary.maghrib.is_present !== false ? "text-green-600" : "text-amber-600"
+                                  summary.maghrib.status === 'present' ? "text-green-600" : "text-amber-600"
                                 )}>
                                   {statusLabels[summary.maghrib.status]}
                                 </p>
