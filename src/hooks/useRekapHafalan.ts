@@ -13,6 +13,7 @@ export interface RekapSantri {
   ayatTerakhir: string;
   tanggalTerakhir: string;
   isActive: boolean;
+  totalJuz: number;
 }
 
 export interface SetoranDetail {
@@ -70,6 +71,18 @@ export function useRekapHafalan(bulan: string, tahun: number) {
         setoranData = [];
       }
 
+      // Fetch summary for total juz
+      const { data: summaryData, error: summaryError } = await supabase
+        .from('hafalan_summary')
+        .select('santri_id, total_hafalan')
+        .eq('tahun', tahun);
+
+      if (summaryError) throw summaryError;
+      const summaryMap = (summaryData || []).reduce((acc, s) => {
+        acc[s.santri_id] = s.total_hafalan || 0;
+        return acc;
+      }, {} as Record<string, number>);
+
       // Build rekap per santri
       const rekapMap: Record<string, RekapSantri> = {};
 
@@ -85,6 +98,7 @@ export function useRekapHafalan(bulan: string, tahun: number) {
           ayatTerakhir: '-',
           tanggalTerakhir: '-',
           isActive: false,
+          totalJuz: summaryMap[santri.id] || 0,
         };
       }
 

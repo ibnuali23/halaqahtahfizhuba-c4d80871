@@ -13,7 +13,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { MonthlyProgress } from '@/types/hafalan';
+import { MonthlyProgress, RekapSantri } from '@/types/hafalan';
 import { motion } from 'framer-motion';
 
 interface ProgressChartProps {
@@ -235,6 +235,62 @@ export function TrendLineChart({ data }: TrendChartProps) {
               dot={{ fill: 'hsl(43 74% 49%)', strokeWidth: 2 }}
             />
           </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </motion.div>
+  );
+}
+
+interface StudentAchievementChartProps {
+  data: RekapSantri[];
+}
+
+export function StudentAchievementChart({ data }: StudentAchievementChartProps) {
+  // Sort data by total juz achievement and take top 15
+  const chartData = [...data]
+    .sort((a, b) => b.totalJuz - a.totalJuz)
+    .slice(0, 15);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.2 }}
+      className="rounded-xl border bg-card p-6 h-full"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-serif text-lg font-semibold">
+          Pencapaian Hafalan Terbanyak (Total Juz)
+        </h3>
+        <span className="text-xs text-muted-foreground">Top 15 Santri</span>
+      </div>
+      <div className="h-[400px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 30, top: 5, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 12 }} domain={[0, 30]} />
+            <YAxis
+              dataKey="santriNama"
+              type="category"
+              tick={{ fontSize: 11 }}
+              width={140}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(40 33% 99%)',
+                border: '1px solid hsl(150 20% 85%)',
+                borderRadius: '8px',
+              }}
+              formatter={(value: number) => [`${value} Juz`, 'Total Hafalan']}
+            />
+            <Bar
+              dataKey="totalJuz"
+              name="Total Juz"
+              fill="hsl(43 74% 49%)"
+              radius={[0, 4, 4, 0]}
+              barSize={20}
+            />
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </motion.div>

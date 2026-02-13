@@ -6,14 +6,26 @@ import {
   MusyrifChart,
   StatusPieChart,
   TrendLineChart,
+  StudentAchievementChart,
 } from '@/components/Charts';
 import {
   hafalanSummary as staticHafalanSummary,
-  monthlyProgress,
   getStats,
   getHafalanByMusyrif,
 } from '@/data/santriData';
-import { useHafalanSummary } from '@/hooks/useSantriData';
+import { useHafalanSummary, useSantri } from '@/hooks/useSantriData';
+import { useRekapHafalan, getCurrentBulan, bulanList } from '@/hooks/useRekapHafalan';
+import { useState } from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Filter } from 'lucide-react';
 import SetoranFeed from '@/components/SetoranFeed';
 import TodayActivityPanel from '@/components/TodayActivityPanel';
 import { Users, Target, Award, Loader2 } from 'lucide-react';
@@ -21,42 +33,56 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { data: dbHafalanSummary, isLoading } = useHafalanSummary();
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentBulan());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedHalaqah, setSelectedHalaqah] = useState<string>(user?.role === 'guru' ? user?.musyrifNama || 'all' : 'all');
 
-  // Use database data if available, otherwise fall back to static data
-  // Filter static data based on user role
-  const hafalanData = dbHafalanSummary?.length 
-    ? dbHafalanSummary 
-    : user?.role === 'admin' 
-      ? staticHafalanSummary
-      : staticHafalanSummary.filter(s => s.musyrif === user?.musyrifNama);
+  const { data: dbHafalanSummary, isLoading: isSummaryLoading } = useHafalanSummary(selectedYear);
+  const { data: rekapData, isLoading: isRekapLoading } = useRekapHafalan(selectedMonth, selectedYear);
+  const { data: santriData } = useSantri();
 
-  // Calculate stats based on filtered data
-  const stats = user?.role === 'admin' 
-    ? getStats() 
+  const halaqahNames = Array.from(new Set(santriData?.map((s) => s.musyrif) || []));
+
+  // Filtering rekap data for the chart
+  let filteredRekap = rekapData?.rekap || [];
+  if (selectedHalaqah !== 'all') {
+    filteredRekap = filteredRekap.filter(r => r.halaqah === selectedHalaqah);
+  }
+
+  // Use database summary if available
+  const currentSummaryData = dbHafalanSummary || [];
+
+  // Calculate stats based on summary data
+  const stats = user?.role === 'admin'
+    ? getStats()
     : {
-        totalSantri: hafalanData.length,
-        totalHafalan: hafalanData.reduce((acc, s) => acc + s.totalHafalan, 0).toFixed(1),
-        rataRataHafalan: hafalanData.length > 0 
-          ? (hafalanData.reduce((acc, s) => acc + s.totalHafalan, 0) / hafalanData.length).toFixed(1)
-          : '0',
-        santriTercapai: hafalanData.filter(s => s.status === 'tercapai').length,
-        santriTidakTercapai: hafalanData.filter(s => s.status === 'tidak tercapai').length,
-        persentaseTercapai: hafalanData.length > 0
-          ? Math.round((hafalanData.filter(s => s.status === 'tercapai').length / hafalanData.length) * 100)
-          : 0,
-      };
+      totalSantri: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length,
+      totalHafalan: currentSummaryData
+        .filter(s => s.musyrif === user?.musyrifNama)
+        .reduce((acc, s) => acc + s.totalHafalan, 0).toFixed(1),
+      rataRataHafalan: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length > 0
+        ? (currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).reduce((acc, s) => acc + s.totalHafalan, 0) /
+          currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length).toFixed(1)
+        : '0',
+      santriTercapai: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama && s.status === 'tercapai').length,
+      santriTidakTercapai: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama && s.status === 'tidak tercapai').length,
+      persentaseTercapai: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length > 0
+        ? Math.round((currentSummaryData.filter(s => s.musyrif === user?.musyrifNama && s.status === 'tercapai').length /
+          currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length) * 100)
+        : 0,
+    };
 
   const hafalanByMusyrif = user?.role === 'admin'
     ? getHafalanByMusyrif()
     : getHafalanByMusyrif().filter(m => m.musyrif === user?.musyrifNama);
 
   // Get top performers from filtered data
-  const topPerformers = [...hafalanData]
+  const topPerformers = [...(dbHafalanSummary || [])]
+    .filter(s => user?.role === 'admin' || s.musyrif === user?.musyrifNama)
     .sort((a, b) => b.totalHafalan - a.totalHafalan)
     .slice(0, 5);
 
-  if (isLoading) {
+  if (isSummaryLoading || isRekapLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center py-12">
@@ -77,17 +103,74 @@ export default function DashboardPage() {
               Dashboard
             </h1>
             <p className="text-muted-foreground mt-1">
-              Selamat datang, {user?.nama}. 
-              {user?.role === 'admin' 
+              Selamat datang, {user?.nama}.
+              {user?.role === 'admin'
                 ? ' Berikut ringkasan hafalan seluruh santri.'
                 : ` Berikut ringkasan hafalan halaqah ${user?.musyrifNama || ''}.`
               }
             </p>
           </div>
+
+          {/* Filters for Chart */}
+          <Card className="bg-card/50 border-none shadow-sm">
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="flex items-center gap-2 text-primary mb-2 md:mb-0 md:mr-4">
+                  <Filter className="h-5 w-5" />
+                  <span className="font-semibold">Filter Grafik Hafalan</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground ml-1">Bulan</Label>
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-[140px] bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bulanList.map((b) => (
+                        <SelectItem key={b} value={b}>{b}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground ml-1">Tahun</Label>
+                  <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                    <SelectTrigger className="w-[100px] bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2024">2024</SelectItem>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2026">2026</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(user?.role === 'admin' || (user?.role === 'guru' && !user?.musyrifNama)) && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground ml-1">Halaqah</Label>
+                    <Select value={selectedHalaqah} onValueChange={setSelectedHalaqah}>
+                      <SelectTrigger className="w-[200px] bg-background">
+                        <SelectValue placeholder="Semua Halaqah" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Semua Halaqah</SelectItem>
+                        {halaqahNames.map((name) => (
+                          <SelectItem key={name} value={name}>{name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{user?.role === 'admin' ? 'Seluruh Angkatan' : user?.musyrifNama}</span>
+            <span>{selectedHalaqah === 'all' ? 'Seluruh Angkatan' : selectedHalaqah}</span>
             <span className="px-2 py-1 bg-accent rounded-full text-xs font-medium">
-              Semester Ganjil 2025
+              {selectedMonth} {selectedYear}
             </span>
           </div>
         </div>
@@ -151,15 +234,14 @@ export default function DashboardPage() {
                     className="flex items-center gap-3 p-3 rounded-lg bg-accent/50"
                   >
                     <div
-                      className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                        index === 0
-                          ? 'bg-secondary text-secondary-foreground'
-                          : index === 1
+                      className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${index === 0
+                        ? 'bg-secondary text-secondary-foreground'
+                        : index === 1
                           ? 'bg-muted text-muted-foreground'
                           : index === 2
-                          ? 'bg-secondary/70 text-secondary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
+                            ? 'bg-secondary/70 text-secondary-foreground'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
                     >
                       {index + 1}
                     </div>
@@ -184,10 +266,9 @@ export default function DashboardPage() {
           </motion.div>
         </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <MonthlyProgressChart data={monthlyProgress} />
-          <MusyrifChart data={hafalanByMusyrif} />
+        {/* Student Achievement Chart */}
+        <div className="grid grid-cols-1 gap-6">
+          <StudentAchievementChart data={filteredRekap} />
         </div>
 
         {/* Status Pie Chart and Trend */}
@@ -196,7 +277,7 @@ export default function DashboardPage() {
             tercapai={stats.santriTercapai}
             tidakTercapai={stats.santriTidakTercapai}
           />
-          <TrendLineChart data={monthlyProgress} />
+          <TrendLineChart data={rekapData?.rekap.map(r => ({ bulan: selectedMonth, totalHalaman: r.totalHalamanBulan, jumlahSantri: 1 })) || []} />
         </div>
       </div>
     </Layout>

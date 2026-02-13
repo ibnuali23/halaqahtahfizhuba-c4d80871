@@ -54,7 +54,7 @@ export default function InputHafalanPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: santriList, isLoading: loadingSantri } = useSantri();
-  
+
   const [formData, setFormData] = useState({
     santriId: '',
     surat: '',
@@ -65,6 +65,7 @@ export default function InputHafalanPage() {
     tahun: new Date().getFullYear().toString(),
     tanggal: new Date().toISOString().split('T')[0],
     keterangan: '',
+    totalJuz: '',
   });
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -85,13 +86,29 @@ export default function InputHafalanPage() {
         });
 
       if (error) throw error;
+
+      // Update total juz in hafalan_summary if provided
+      if (data.totalJuz) {
+        const { error: summaryError } = await supabase
+          .from('hafalan_summary')
+          .upsert({
+            santri_id: data.santriId,
+            tahun: parseInt(data.tahun),
+            total_hafalan: parseFloat(data.totalJuz)
+          }, { onConflict: 'santri_id, tahun' });
+
+        if (summaryError) {
+          console.error('Error updating summary:', summaryError);
+        }
+      }
     },
     onSuccess: () => {
       toast.success('Setoran hafalan berhasil disimpan!');
       setShowSuccess(true);
       queryClient.invalidateQueries({ queryKey: ['setoran_hafalan'] });
       queryClient.invalidateQueries({ queryKey: ['hafalan_summary'] });
-      
+      queryClient.invalidateQueries({ queryKey: ['rekap_hafalan'] });
+
       setTimeout(() => {
         setFormData({
           santriId: '',
@@ -103,6 +120,7 @@ export default function InputHafalanPage() {
           tahun: new Date().getFullYear().toString(),
           tanggal: new Date().toISOString().split('T')[0],
           keterangan: '',
+          totalJuz: '',
         });
         setShowSuccess(false);
       }, 2000);
@@ -114,12 +132,12 @@ export default function InputHafalanPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.santriId || !formData.surat || !formData.jumlahHalaman || !formData.bulan) {
       toast.error('Lengkapi semua field yang wajib');
       return;
     }
-    
+
     addSetoranMutation.mutate(formData);
   };
 
@@ -156,7 +174,7 @@ export default function InputHafalanPage() {
             Input Hafalan Baru
           </h1>
           <p className="text-muted-foreground mt-1">
-            {user?.role === 'admin' 
+            {user?.role === 'admin'
               ? 'Tambahkan setoran hafalan santri ke dalam sistem'
               : `Tambahkan setoran hafalan untuk halaqah ${user?.musyrifNama || ''}`
             }
@@ -323,6 +341,25 @@ export default function InputHafalanPage() {
                   setFormData({ ...formData, tanggal: e.target.value })
                 }
               />
+            </div>
+
+            {/* Total Hafalan (Juz) */}
+            <div className="space-y-2">
+              <Label htmlFor="totalJuz">Update Total Hafalan (Juz) - Opsional</Label>
+              <Input
+                id="totalJuz"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Contoh: 15.5"
+                value={formData.totalJuz}
+                onChange={(e) =>
+                  setFormData({ ...formData, totalJuz: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Isi jika ingin memperbarui total juz santri saat ini (Sinkron ke Rekap/Laporan)
+              </p>
             </div>
 
             {/* Keterangan */}

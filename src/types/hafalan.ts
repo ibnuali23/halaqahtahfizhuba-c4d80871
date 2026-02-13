@@ -74,3 +74,16 @@ export interface MonthlyProgress {
   totalHalaman: number;
   jumlahSantri: number;
 }
+
+export interface RekapSantri {
+  santriId: string;
+  santriNama: string;
+  halaqah: string;
+  kelas: string;
+  totalHalamanBulan: number;
+  jumlahSetoran: number;
+  ayatTerakhir: string;
+  tanggalTerakhir: string;
+  isActive: boolean;
+  totalJuz: number;
+}

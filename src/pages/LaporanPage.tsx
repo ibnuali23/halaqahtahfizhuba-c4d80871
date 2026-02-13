@@ -103,6 +103,7 @@ export default function LaporanPage() {
       item.halaqah,
       item.kelas,
       item.totalHalamanBulan,
+      item.totalJuz,
       item.ayatTerakhir,
       item.totalHalamanBulan >= 12 ? 'Tercapai' : 'Tidak Tercapai',
     ]);
@@ -253,6 +254,9 @@ export default function LaporanPage() {
                 <TableHead className="text-primary-foreground font-semibold text-center">
                   Update Terakhir
                 </TableHead>
+                <TableHead className="text-primary-foreground font-semibold text-center">
+                  Total Juz
+                </TableHead>
                 <TableHead className="text-primary-foreground font-semibold">Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -279,6 +283,9 @@ export default function LaporanPage() {
                     </TableCell>
                     <TableCell className="text-center text-sm text-muted-foreground">
                       {item.ayatTerakhir}
+                    </TableCell>
+                    <TableCell className="text-center font-bold text-secondary">
+                      {item.totalJuz}
                     </TableCell>
                     <TableCell>
                       <Badge
