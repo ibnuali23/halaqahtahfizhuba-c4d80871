@@ -83,7 +83,8 @@ export default function InputHafalanPage() {
           tanggal: data.tanggal,
           keterangan: data.keterangan || null,
           recorded_by: user?.id,
-        });
+          total_juz: data.totalJuz ? parseFloat(data.totalJuz) : 0,
+        } as any);
 
       if (error) throw error;
 

@@ -71,7 +71,7 @@ export function useRekapHafalan(bulan: string, tahun: number) {
         setoranData = [];
       }
 
-      // Fetch summary for total juz
+      // Fetch summary for total juz from hafalan_summary
       const { data: summaryData, error: summaryError } = await supabase
         .from('hafalan_summary')
         .select('santri_id, total_hafalan')
@@ -82,6 +82,16 @@ export function useRekapHafalan(bulan: string, tahun: number) {
         acc[s.santri_id] = s.total_hafalan || 0;
         return acc;
       }, {} as Record<string, number>);
+
+      // Also build a map from the latest setoran's total_juz per santri
+      const setoranJuzMap: Record<string, number> = {};
+      for (const setoran of setoranData) {
+        const sid = setoran.santri_id;
+        // setoranData is ordered desc by tanggal, so first occurrence is latest
+        if (!(sid in setoranJuzMap) && (setoran as any).total_juz > 0) {
+          setoranJuzMap[sid] = Number((setoran as any).total_juz);
+        }
+      }
 
       // Build rekap per santri
       const rekapMap: Record<string, RekapSantri> = {};
@@ -98,7 +108,7 @@ export function useRekapHafalan(bulan: string, tahun: number) {
           ayatTerakhir: '-',
           tanggalTerakhir: '-',
           isActive: false,
-          totalJuz: summaryMap[santri.id] || 0,
+          totalJuz: setoranJuzMap[santri.id] || summaryMap[santri.id] || 0,
         };
       }
 
