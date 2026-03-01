@@ -346,6 +346,7 @@ export type Database = {
           surat: string | null
           tahun: number
           tanggal: string
+          total_juz: number | null
           updated_at: string
         }
         Insert: {
@@ -360,6 +361,7 @@ export type Database = {
           surat?: string | null
           tahun: number
           tanggal?: string
+          total_juz?: number | null
           updated_at?: string
         }
         Update: {
@@ -374,6 +376,7 @@ export type Database = {
           surat?: string | null
           tahun?: number
           tanggal?: string
+          total_juz?: number | null
           updated_at?: string
         }
         Relationships: [
