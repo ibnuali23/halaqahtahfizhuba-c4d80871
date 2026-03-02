@@ -91,13 +91,37 @@ export default function InputHafalanPage() {
       // Update total juz in hafalan_summary if provided and valid
       if (data.totalJuz !== '' && data.totalJuz !== null && !isNaN(Number(data.totalJuz))) {
         const total = parseFloat(String(data.totalJuz));
-        const { data: summaryResult, error: summaryError } = await supabase
+        // Check if summary exists first
+        const { data: existingSummary } = await supabase
           .from('hafalan_summary')
-          .upsert({
-            santri_id: data.santriId,
-            tahun: parseInt(data.tahun),
-            total_hafalan: total
-          }, { onConflict: ['santri_id', 'tahun'], returning: 'representation' });
+          .select('id')
+          .eq('santri_id', data.santriId)
+          .eq('tahun', parseInt(data.tahun))
+          .maybeSingle();
+
+        let summaryError: any = null;
+        let summaryResult: any = null;
+
+        if (existingSummary) {
+          const { data: updateResult, error: updateError } = await supabase
+            .from('hafalan_summary')
+            .update({ total_hafalan: total })
+            .eq('id', existingSummary.id)
+            .select();
+          summaryError = updateError;
+          summaryResult = updateResult;
+        } else {
+          const { data: insertResult, error: insertError } = await supabase
+            .from('hafalan_summary')
+            .insert({
+              santri_id: data.santriId,
+              tahun: parseInt(data.tahun),
+              total_hafalan: total,
+            })
+            .select();
+          summaryError = insertError;
+          summaryResult = insertResult;
+        }
 
         if (summaryError) {
           console.error('Error updating summary:', summaryError);
