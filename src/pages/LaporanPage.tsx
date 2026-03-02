@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRekapHafalan, bulanList, getCurrentBulan } from '@/hooks/useRekapHafalan';
+import { useRekapHafalan, bulanList, getCurrentBulan, RekapSantri } from '@/hooks/useRekapHafalan';
 import { supabase } from '@/integrations/supabase/client';
 import { getWIBTime } from '@/hooks/useAbsensi';
 import { Download, Printer, Loader2, Calendar } from 'lucide-react';
@@ -40,9 +40,9 @@ export default function LaporanPage() {
   const { data: rekapData, isLoading } = useRekapHafalan(selectedMonth, selectedYear);
 
   // monthlyData now comes from rekapData.rekap
-  const monthlyData = rekapData?.rekap || [];
+  const monthlyData: RekapSantri[] = useMemo(() => rekapData?.rekap || [], [rekapData]);
 
-  const halaqahNames = Array.from(new Set(monthlyData.map((s) => s.halaqah))).sort();
+  const halaqahNames = Array.from(new Set(monthlyData.map((s) => s.halaqah))).sort() as string[];
 
   let filteredData = monthlyData;
   if (filterKelas !== 'all') {
@@ -77,10 +77,10 @@ export default function LaporanPage() {
       }
 
       if (!mounted) return;
-      const map = (data || []).reduce((acc: Record<string, number>, row: any) => {
+      const map = (data || []).reduce((acc: Record<string, number>, row) => {
         acc[row.santri_id] = Number(row.total_hafalan) || 0;
         return acc;
-      }, {});
+      }, {} as Record<string, number>);
       setSummaryMap(map);
     })();
 
@@ -107,11 +107,15 @@ export default function LaporanPage() {
       return acc;
     }, {} as Record<string, { totalHafalan: number; jumlahSantri: number; musyrif: string }>);
 
-    return Object.values(grouped).map(d => ({
-      ...d,
-      totalHafalan: d.totalHafalan.toFixed(1),
-      rataRata: (d.totalHafalan / d.jumlahSantri).toFixed(1)
-    }));
+    return Object.values(grouped).map(d => {
+      const totalNum = Number(d.totalHafalan);
+      const count = Number(d.jumlahSantri);
+      return {
+        ...d,
+        totalHafalan: totalNum.toFixed(1),
+        rataRata: count > 0 ? (totalNum / count).toFixed(1) : '0'
+      };
+    });
   };
 
   const getHafalanByKelas = () => {
@@ -124,11 +128,15 @@ export default function LaporanPage() {
       return acc;
     }, {} as Record<string, { totalHafalan: number; jumlahSantri: number; kelas: string }>);
 
-    return Object.values(grouped).map(d => ({
-      ...d,
-      totalHafalan: d.totalHafalan.toFixed(1),
-      rataRata: (d.totalHafalan / d.jumlahSantri).toFixed(1)
-    }));
+    return Object.values(grouped).map(d => {
+      const totalNum = Number(d.totalHafalan);
+      const count = Number(d.jumlahSantri);
+      return {
+        ...d,
+        totalHafalan: totalNum.toFixed(1),
+        rataRata: count > 0 ? (totalNum / count).toFixed(1) : '0'
+      };
+    });
   };
 
   const hafalanByMusyrif = user?.role === 'admin'

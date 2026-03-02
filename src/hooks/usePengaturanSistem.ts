@@ -103,7 +103,7 @@ export function usePengaturanSistem() {
         fetchSettings();
       }
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating settings:', error);
       toast.error('Gagal menyimpan pengaturan');
       return false;

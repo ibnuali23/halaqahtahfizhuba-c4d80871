@@ -101,7 +101,15 @@ function LocationSettingsDialog() {
     setAlamat('');
   };
 
-  const handleEdit = (loc: any) => {
+  const handleEdit = (loc: {
+    id: string;
+    nama: string;
+    waktu_halaqah: WaktuHalaqah;
+    latitude: number;
+    longitude: number;
+    radius_meter: number;
+    alamat?: string;
+  }) => {
     setEditId(loc.id);
     setNama(loc.nama);
     setWaktuHalaqah(loc.waktu_halaqah);
@@ -124,8 +132,9 @@ function LocationSettingsDialog() {
       });
       toast.success('Lokasi halaqah berhasil disimpan');
       resetForm();
-    } catch (error: any) {
-      toast.error('Gagal menyimpan: ' + error.message);
+    } catch (error) {
+      const err = error as { message?: string };
+      toast.error('Gagal menyimpan: ' + err.message);
     }
   };
 
@@ -133,8 +142,9 @@ function LocationSettingsDialog() {
     try {
       await deleteMutation.mutateAsync(id);
       toast.success('Lokasi berhasil dihapus');
-    } catch (error: any) {
-      toast.error('Gagal menghapus: ' + error.message);
+    } catch (error) {
+      const err = error as { message?: string };
+      toast.error('Gagal menghapus: ' + err.message);
     }
   };
 
@@ -147,7 +157,7 @@ function LocationSettingsDialog() {
           toast.success('Lokasi saat ini berhasil diambil');
         },
         (error) => {
-          toast.error('Gagal mendapatkan lokasi: ' + error.message);
+          toast.error('Gagal mendapatkan lokasi: ' + (error as GeolocationPositionError).message);
         },
         { enableHighAccuracy: true }
       );

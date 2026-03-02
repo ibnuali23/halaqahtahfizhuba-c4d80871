@@ -84,7 +84,7 @@ export default function InputHafalanPage() {
           keterangan: data.keterangan || null,
           recorded_by: user?.id,
           total_juz: data.totalJuz ? parseFloat(data.totalJuz) : 0,
-        } as any);
+        });
 
       if (error) throw error;
 
@@ -97,7 +97,7 @@ export default function InputHafalanPage() {
             santri_id: data.santriId,
             tahun: parseInt(data.tahun),
             total_hafalan: total
-          }, { onConflict: ['santri_id', 'tahun'], returning: 'representation' });
+          }, { onConflict: ['santri_id', 'tahun'] });
 
         if (summaryError) {
           console.error('Error updating summary:', summaryError);
@@ -117,11 +117,11 @@ export default function InputHafalanPage() {
       try {
         const tahunNum = parseInt(formData.tahun);
         const rekapKey = ['rekap_hafalan', user?.id, formData.bulan, tahunNum];
-        const existing: any = queryClient.getQueryData(rekapKey);
+        const existing = queryClient.getQueryData(rekapKey) as { rekap: { santriId: string; totalJuz?: number }[] } | undefined;
         if (existing && Array.isArray(existing.rekap) && formData.totalJuz !== '' && !isNaN(Number(formData.totalJuz))) {
           const updated = {
             ...existing,
-            rekap: existing.rekap.map((r: any) =>
+            rekap: existing.rekap.map((r) =>
               r.santriId === formData.santriId
                 ? { ...r, totalJuz: parseFloat(String(formData.totalJuz)) }
                 : r

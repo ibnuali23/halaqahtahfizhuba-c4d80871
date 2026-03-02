@@ -2,6 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useCallback } from 'react';
+import { Tables } from '@/integrations/supabase/types';
+
+type SetoranHafalan = Tables<'setoran_hafalan'>;
 
 export interface RekapSantri {
   santriId: string;
@@ -48,7 +51,7 @@ export function useRekapHafalan(bulan: string, tahun: number) {
       const santriIds = (santriData || []).map((s) => s.id);
 
       // Get setoran for the month filtered to santriIds when applicable
-      let setoranData: any[] = [];
+      let setoranData: SetoranHafalan[] = [];
       if (santriIds.length > 0) {
         const { data: _setoranData, error: setoranError } = await supabase
           .from('setoran_hafalan')
@@ -90,8 +93,8 @@ export function useRekapHafalan(bulan: string, tahun: number) {
       for (const setoran of setoranData) {
         const sid = setoran.santri_id;
         // setoranData is ordered desc by tanggal, so first occurrence is latest
-        if (!(sid in setoranJuzMap) && (setoran as any).total_juz > 0) {
-          setoranJuzMap[sid] = Number((setoran as any).total_juz);
+        if (!(sid in setoranJuzMap) && setoran.total_juz && setoran.total_juz > 0) {
+          setoranJuzMap[sid] = Number(setoran.total_juz);
         }
       }
 
@@ -208,7 +211,7 @@ export function useSetoranDetail(santriId: string, bulan: string, tahun: number)
           .select('user_id, nama')
           .in('user_id', recorderIds);
 
-        recorderMap = (profiles || []).reduce((acc, p) => {
+        recorderMap = (profiles || []).reduce((acc: Record<string, string>, p) => {
           acc[p.user_id] = p.nama;
           return acc;
         }, {} as Record<string, string>);

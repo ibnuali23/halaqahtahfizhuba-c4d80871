@@ -114,9 +114,20 @@ export function DataExportImport() {
           let imported = 0;
           let skipped = 0;
 
-          for (const row of jsonData as any[]) {
+          interface ExcelRow {
+            'Nama Santri'?: string;
+            'Tanggal'?: string;
+            'Surat'?: string;
+            'Ayat'?: string;
+            'Jumlah Halaman'?: string | number;
+            'Bulan'?: string;
+            'Tahun'?: string | number;
+            'Keterangan'?: string;
+          }
+
+          for (const row of (jsonData as ExcelRow[])) {
             const santriName = row['Nama Santri']?.toLowerCase();
-            const santriId = santriMap.get(santriName);
+            const santriId = santriName ? santriMap.get(santriName) : null;
 
             if (!santriId) {
               skipped++;
@@ -128,9 +139,9 @@ export function DataExportImport() {
               tanggal: row['Tanggal'] || new Date().toISOString().split('T')[0],
               surat: row['Surat'] || null,
               ayat: row['Ayat'] || null,
-              jumlah_halaman: parseFloat(row['Jumlah Halaman']) || 0,
+              jumlah_halaman: Number(row['Jumlah Halaman']) || 0,
               bulan: row['Bulan'] || new Date().toLocaleString('id-ID', { month: 'long' }),
-              tahun: parseInt(row['Tahun']) || new Date().getFullYear(),
+              tahun: Number(row['Tahun']) || new Date().getFullYear(),
               keterangan: row['Keterangan'] || null,
             });
 

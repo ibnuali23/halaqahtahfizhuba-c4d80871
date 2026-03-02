@@ -37,7 +37,7 @@ export default function SetoranDetailModal({
 }: SetoranDetailModalProps) {
   const { data: setoranList, isLoading } = useSetoranDetail(santriId, bulan, tahun);
 
-  const totalHalaman = setoranList?.reduce((acc, s) => acc + s.jumlahHalaman, 0) || 0;
+  const totalHalaman = setoranList?.reduce((acc: number, s) => acc + s.jumlahHalaman, 0) || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

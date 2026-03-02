@@ -63,12 +63,13 @@ export function useSetoranFeed(days: number = 7) {
 
       const feedItems: SetoranFeedItem[] = (setoranData || []).map((item) => {
         const isOwner = item.recorded_by === user?.id;
+        const santriInfo = item.santri as unknown as { nama: string; kelas: string; musyrif: string };
         return {
           id: item.id,
           santri_id: item.santri_id,
-          santri_nama: (item.santri as any)?.nama || 'Unknown',
-          santri_kelas: (item.santri as any)?.kelas || 'Unknown',
-          santri_musyrif: (item.santri as any)?.musyrif || 'Unknown',
+          santri_nama: santriInfo?.nama || 'Unknown',
+          santri_kelas: santriInfo?.kelas || 'Unknown',
+          santri_musyrif: santriInfo?.musyrif || 'Unknown',
           surat: item.surat,
           ayat: item.ayat,
           jumlah_halaman: item.jumlah_halaman,
@@ -106,7 +107,7 @@ export function useUpdateSetoran() {
       jumlah_halaman?: number;
       tanggal?: string;
       keterangan?: string;
-      old_data: any;
+      old_data: Record<string, unknown>;
     }) => {
       const { id, old_data, ...updateData } = data;
 
@@ -142,7 +143,7 @@ export function useDeleteSetoran() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { id: string; old_data: any; reason?: string }) => {
+    mutationFn: async (data: { id: string; old_data: Record<string, unknown>; reason?: string }) => {
       // Log the deletion first
       const { error: logError } = await supabase.from('hafalan_log').insert({
         setoran_id: data.id,

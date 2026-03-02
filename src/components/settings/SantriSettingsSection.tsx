@@ -63,9 +63,10 @@ export function SantriSettingsSection() {
             toast.success('✅ Perubahan berhasil disimpan');
             setIsDialogOpen(false);
             setEditingSantri(null);
-        } catch (error: any) {
-            console.error('Error updating santri:', error);
-            toast.error('Gagal menyimpan perubahan: ' + (error.message || 'Error tidak diketahui'));
+        } catch (error) {
+            const err = error as { message?: string };
+            console.error('Error updating santri:', err);
+            toast.error('Gagal menyimpan perubahan: ' + (err.message || 'Error tidak diketahui'));
         }
     };
 
@@ -164,7 +165,7 @@ export function SantriSettingsSection() {
                                 <Label htmlFor="kelas">Kelas / Angkatan</Label>
                                 <Select
                                     value={editingSantri.kelas}
-                                    onValueChange={(value: any) => setEditingSantri({ ...editingSantri, kelas: value })}
+                                    onValueChange={(value) => setEditingSantri({ ...editingSantri, kelas: value as "Angkatan 1" | "Angkatan 2" | "Angkatan 3" })}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />
@@ -188,7 +189,7 @@ export function SantriSettingsSection() {
                                 <Label htmlFor="status">Status</Label>
                                 <Select
                                     value={editingSantri.status || 'aktif'}
-                                    onValueChange={(value: any) => setEditingSantri({ ...editingSantri, status: value })}
+                                    onValueChange={(value) => setEditingSantri({ ...editingSantri, status: value as "aktif" | "nonaktif" })}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />

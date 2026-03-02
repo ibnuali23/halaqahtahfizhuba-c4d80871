@@ -121,7 +121,7 @@ function EditSetoranDialog({ item, onSuccess }: { item: SetoranFeedItem; onSucce
   const [jumlahHalaman, setJumlahHalaman] = useState(item.jumlah_halaman.toString());
   const [tanggal, setTanggal] = useState(item.tanggal);
   const [keterangan, setKeterangan] = useState(item.keterangan || '');
-  
+
   const updateMutation = useUpdateSetoran();
 
   const handleSave = async () => {
@@ -144,8 +144,9 @@ function EditSetoranDialog({ item, onSuccess }: { item: SetoranFeedItem; onSucce
       toast.success('Data hafalan berhasil diperbarui');
       setOpen(false);
       onSuccess();
-    } catch (error: any) {
-      toast.error('Gagal memperbarui: ' + error.message);
+    } catch (error) {
+      const err = error as { message?: string };
+      toast.error('Gagal memperbarui: ' + err.message);
     }
   };
 
@@ -233,8 +234,9 @@ function DeleteSetoranDialog({ item, onSuccess }: { item: SetoranFeedItem; onSuc
       });
       toast.success('Data hafalan berhasil dihapus');
       onSuccess();
-    } catch (error: any) {
-      toast.error('Gagal menghapus: ' + error.message);
+    } catch (error) {
+      const err = error as { message?: string };
+      toast.error('Gagal menghapus: ' + err.message);
     }
   };
 
@@ -351,7 +353,7 @@ export default function SetoranFeed({ compact = false, maxItems, showFilters = f
 
   // Filter items
   let filteredItems = feedItems || [];
-  
+
   if (searchQuery) {
     const query = searchQuery.toLowerCase();
     filteredItems = filteredItems.filter(
@@ -361,7 +363,7 @@ export default function SetoranFeed({ compact = false, maxItems, showFilters = f
         item.santri_musyrif.toLowerCase().includes(query)
     );
   }
-  
+
   if (filterGuru !== 'all') {
     filteredItems = filteredItems.filter((item) => item.recorded_by_nama === filterGuru);
   }
@@ -409,7 +411,7 @@ export default function SetoranFeed({ compact = false, maxItems, showFilters = f
               </SelectContent>
             </Select>
           </div>
-          
+
           {showFilters && (
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">

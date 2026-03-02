@@ -46,7 +46,7 @@ export interface HalaqahLocation {
 
 const MERGE_PREFIX = "_SESSION_DATA_:";
 
-function unmergeRecords(record: any): AbsensiRecord[] {
+function unmergeRecords(record: AbsensiRecord): AbsensiRecord[] {
   if (!record) return [];
 
   const records: AbsensiRecord[] = [record as AbsensiRecord];
@@ -193,7 +193,7 @@ export function useAbsensi(month?: number, year?: number) {
       if (error) throw error;
 
       // Flatten merged records
-      return (data || []).flatMap(unmergeRecords);
+      return (data || []).flatMap((item) => unmergeRecords(item as unknown as AbsensiRecord));
     },
     enabled: !!user,
   });
@@ -232,7 +232,7 @@ export function useAllAbsensi(month?: number, year?: number) {
 
       const records: AbsensiRecord[] = (absensiData || []).flatMap((item) => {
         // Unmerge first to get all sessions
-        const items = unmergeRecords(item);
+        const items = unmergeRecords(item as unknown as AbsensiRecord);
 
         return items.map(sessionItem => {
           let distance_from_ref: number | undefined;

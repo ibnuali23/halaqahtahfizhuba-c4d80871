@@ -132,7 +132,7 @@ export default function SantriPage() {
 
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleteDialogOpenInternal, setIsDeleteDialogOpenInternal] = useState(false);
   const [editingSantri, setEditingSantri] = useState<SantriDB | null>(null);
 
   const [formData, setFormData] = useState<{
@@ -186,7 +186,7 @@ export default function SantriPage() {
     },
     onSuccess: () => {
       toast.success('Data santri berhasil diperbarui');
-      setIsDialogOpen(false);
+      setIsDeleteDialogOpenInternal(false);
       setEditingSantri(null);
       queryClient.invalidateQueries({ queryKey: ['santri'] });
     },
@@ -200,7 +200,7 @@ export default function SantriPage() {
     },
     onSuccess: () => {
       toast.success('Data santri berhasil dihapus');
-      setIsDeleteDialogOpen(false);
+      setIsDeleteDialogOpenInternal(false);
       setEditingSantri(null);
       queryClient.invalidateQueries({ queryKey: ['santri'] });
     },
@@ -250,7 +250,7 @@ export default function SantriPage() {
   };
 
   // Count per angkatan
-  const countPerAngkatan = kelasOptions.reduce((acc, kelas) => {
+  const countPerAngkatan = kelasOptions.reduce((acc: Record<KelasType, number>, kelas) => {
     acc[kelas] = (santris || []).filter((s) => s.kelas === kelas).length;
     return acc;
   }, {} as Record<KelasType, number>);
@@ -489,7 +489,7 @@ export default function SantriPage() {
                             className="text-destructive hover:text-destructive"
                             onClick={() => {
                               setEditingSantri(santri);
-                              setIsDeleteDialogOpen(true);
+                              setIsDeleteDialogOpenInternal(true);
                             }}
                           >
                             <Trash2 size={16} />
@@ -505,7 +505,7 @@ export default function SantriPage() {
         </motion.div>
 
         {/* Delete Confirmation */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog open={isDeleteDialogOpenInternal} onOpenChange={setIsDeleteDialogOpenInternal}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Hapus Data Santri?</AlertDialogTitle>

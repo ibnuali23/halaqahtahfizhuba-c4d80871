@@ -60,9 +60,7 @@ export function useUpdateSantri() {
       updates: Partial<SantriDB>;
     }) => {
       // Clean updates: exclude primary key and read-only fields
-      const { id: _id, created_at, updated_at, ...cleanUpdates } = updates as any;
-
-      const payload = { ...cleanUpdates };
+      const { id: _id, created_at, updated_at, ...payload } = updates;
 
       const { data, error } = await supabase
         .from('santri')

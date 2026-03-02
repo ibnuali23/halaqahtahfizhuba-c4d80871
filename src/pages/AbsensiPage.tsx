@@ -189,7 +189,8 @@ function CheckInDialog({
         { enableHighAccuracy: true, timeout: 10000 }
       );
     }
-  }, [open, waktuHalaqah, halaqahLocations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, waktuHalaqah]);
 
   // Recalculate distance when waktu_halaqah changes
   useEffect(() => {
@@ -239,11 +240,12 @@ function CheckInDialog({
       toast.success(`Check-in berhasil untuk ${waktuLabels[waktuHalaqah]} ${locationInfo}`);
       setOpen(false);
       onSuccess();
-    } catch (error: any) {
-      if (error.message?.includes('unique_absensi_waktu') || error.message?.includes('duplicate')) {
+    } catch (error) {
+      const err = error as { message?: string };
+      if (err.message?.includes('unique_absensi_waktu') || err.message?.includes('duplicate')) {
         toast.error(`Anda sudah check-in untuk ${waktuLabels[waktuHalaqah]} hari ini`);
       } else {
-        toast.error('Gagal check-in: ' + error.message);
+        toast.error('Gagal check-in: ' + err.message);
       }
     }
   };
@@ -507,8 +509,9 @@ export default function AbsensiPage() {
       await checkOutMutation.mutateAsync(waktuHalaqah);
       toast.success(`Check-out ${waktuLabels[waktuHalaqah]} berhasil!`);
       refetch();
-    } catch (error: any) {
-      toast.error('Gagal check-out: ' + error.message);
+    } catch (error) {
+      const err = error as { message?: string };
+      toast.error('Gagal check-out: ' + err.message);
     }
   };
 
