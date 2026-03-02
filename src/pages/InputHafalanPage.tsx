@@ -88,24 +88,51 @@ export default function InputHafalanPage() {
 
       if (error) throw error;
 
-      // Update total juz in hafalan_summary if provided
-      if (data.totalJuz) {
-        const { error: summaryError } = await supabase
+      // Update total juz in hafalan_summary if provided and valid
+      if (data.totalJuz !== '' && data.totalJuz !== null && !isNaN(Number(data.totalJuz))) {
+        const total = parseFloat(String(data.totalJuz));
+        const { data: summaryResult, error: summaryError } = await supabase
           .from('hafalan_summary')
           .upsert({
             santri_id: data.santriId,
             tahun: parseInt(data.tahun),
-            total_hafalan: parseFloat(data.totalJuz)
-          }, { onConflict: 'santri_id, tahun' });
+            total_hafalan: total
+          }, { onConflict: ['santri_id', 'tahun'], returning: 'representation' });
 
         if (summaryError) {
           console.error('Error updating summary:', summaryError);
+          toast.error('Gagal memperbarui total juz pada summary (lihat console)');
+        } else {
+          console.log('Hafalan summary upsert result:', summaryResult);
+          // Show brief success feedback with stored value
+          toast.success(`Total juz diperbarui: ${total}`);
         }
       }
     },
     onSuccess: () => {
       toast.success('Setoran hafalan berhasil disimpan!');
       setShowSuccess(true);
+
+      // Optimistically update rekap_hafalan cache so Total Juz appears immediately
+      try {
+        const tahunNum = parseInt(formData.tahun);
+        const rekapKey = ['rekap_hafalan', user?.id, formData.bulan, tahunNum];
+        const existing: any = queryClient.getQueryData(rekapKey);
+        if (existing && Array.isArray(existing.rekap) && formData.totalJuz !== '' && !isNaN(Number(formData.totalJuz))) {
+          const updated = {
+            ...existing,
+            rekap: existing.rekap.map((r: any) =>
+              r.santriId === formData.santriId
+                ? { ...r, totalJuz: parseFloat(String(formData.totalJuz)) }
+                : r
+            ),
+          };
+          queryClient.setQueryData(rekapKey, updated);
+        }
+      } catch (e) {
+        console.error('Error updating rekap_hafalan cache:', e);
+      }
+
       queryClient.invalidateQueries({ queryKey: ['setoran_hafalan'] });
       queryClient.invalidateQueries({ queryKey: ['hafalan_summary'] });
       queryClient.invalidateQueries({ queryKey: ['rekap_hafalan'] });

@@ -71,17 +71,19 @@ export function useRekapHafalan(bulan: string, tahun: number) {
         setoranData = [];
       }
 
-      // Fetch summary for total juz from hafalan_summary
+      // Fetch summary for total juz from hafalan_summary (limit to santriIds to satisfy RLS)
       const { data: summaryData, error: summaryError } = await supabase
         .from('hafalan_summary')
         .select('santri_id, total_hafalan')
+        .in('santri_id', santriIds)
         .eq('tahun', tahun);
 
       if (summaryError) throw summaryError;
       const summaryMap = (summaryData || []).reduce((acc, s) => {
-        acc[s.santri_id] = s.total_hafalan || 0;
+        acc[s.santri_id] = Number(s.total_hafalan) || 0;
         return acc;
       }, {} as Record<string, number>);
+      console.log('Debug: summaryMap:', summaryMap);
 
       // Also build a map from the latest setoran's total_juz per santri
       const setoranJuzMap: Record<string, number> = {};

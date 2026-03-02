@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRekapHafalan, bulanList, getCurrentBulan } from '@/hooks/useRekapHafalan';
+import { supabase } from '@/integrations/supabase/client';
 import { getWIBTime } from '@/hooks/useAbsensi';
 import { Download, Printer, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
@@ -38,6 +39,41 @@ export default function LaporanPage() {
 
   // monthlyData now comes from rekapData.rekap
   const monthlyData = rekapData?.rekap || [];
+
+  // Fallback summary map used when item.totalJuz is missing
+  const [summaryMap, setSummaryMap] = useState<Record<string, number>>({});
+  const summaryCount = Object.keys(summaryMap).length;
+
+  useEffect(() => {
+    const ids = monthlyData.map(d => d.santriId);
+    if (!ids.length) {
+      setSummaryMap({});
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from('hafalan_summary')
+        .select('santri_id, total_hafalan')
+        .in('santri_id', ids)
+        .eq('tahun', selectedYear);
+
+      if (error) {
+        console.error('Error fetching hafalan_summary for laporan:', error);
+        return;
+      }
+
+      if (!mounted) return;
+      const map = (data || []).reduce((acc: Record<string, number>, row: any) => {
+        acc[row.santri_id] = Number(row.total_hafalan) || 0;
+        return acc;
+      }, {});
+      setSummaryMap(map);
+    })();
+
+    return () => { mounted = false; };
+  }, [monthlyData, selectedYear]);
 
   // Calculate stats based on rekap data
   const totalBulanIni = rekapData?.totalSetoran || 0;
@@ -96,15 +132,15 @@ export default function LaporanPage() {
 
   const handleExportPDF = () => {
     // Export as CSV for now
-    const headers = ['No', 'Nama Santri', 'Halaqah', 'Angkatan', `Hafalan ${selectedMonth}`, 'Update Terakhir', 'Status'];
+    const headers = ['No', 'Nama Santri', 'Halaqah', 'Angkatan', `Hafalan ${selectedMonth}`, 'Update Terakhir', 'Total Juz', 'Status'];
     const rows = monthlyData.map((item, index) => [
       index + 1,
       item.santriNama,
       item.halaqah,
       item.kelas,
       item.totalHalamanBulan,
-      item.totalJuz,
       item.ayatTerakhir,
+      (summaryMap[item.santriId] ?? item.totalJuz ?? 0),
       item.totalHalamanBulan >= 12 ? 'Tercapai' : 'Tidak Tercapai',
     ]);
 
@@ -285,7 +321,7 @@ export default function LaporanPage() {
                       {item.ayatTerakhir}
                     </TableCell>
                     <TableCell className="text-center font-bold text-secondary">
-                      {item.totalJuz}
+                      {summaryMap[item.santriId] ?? item.totalJuz ?? 0}
                     </TableCell>
                     <TableCell>
                       <Badge

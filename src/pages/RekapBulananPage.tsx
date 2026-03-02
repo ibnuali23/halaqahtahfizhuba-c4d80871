@@ -56,6 +56,9 @@ export default function RekapBulananPage() {
     id: string;
     nama: string;
   } | null>(null);
+  
+    // Debug banner for summary fetch status
+    const summaryCount = Object.keys(summaryMap).length;
 
   const { data: rekapData, isLoading } = useRekapHafalan(bulan, tahun);
   const { data: santriData } = useSantri();
@@ -131,6 +134,11 @@ export default function RekapBulananPage() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
+          {summaryCount > 0 && (
+            <div className="px-4 py-2 rounded-md bg-amber-50 border border-amber-100 text-sm">
+              Debug: fetched {summaryCount} hafalan_summary rows (fallback active)
+            </div>
+          )}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="font-serif text-3xl font-bold text-foreground">
