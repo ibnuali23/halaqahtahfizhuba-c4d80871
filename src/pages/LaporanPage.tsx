@@ -34,11 +34,23 @@ export default function LaporanPage() {
   const { user } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(getCurrentBulan());
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [filterKelas, setFilterKelas] = useState<string>('all');
+  const [filterHalaqah, setFilterHalaqah] = useState<string>('all');
 
   const { data: rekapData, isLoading } = useRekapHafalan(selectedMonth, selectedYear);
 
   // monthlyData now comes from rekapData.rekap
   const monthlyData = rekapData?.rekap || [];
+
+  const halaqahNames = Array.from(new Set(monthlyData.map((s) => s.halaqah))).sort();
+
+  let filteredData = monthlyData;
+  if (filterKelas !== 'all') {
+    filteredData = filteredData.filter((h) => h.kelas === filterKelas);
+  }
+  if (filterHalaqah !== 'all' && user?.role === 'admin') {
+    filteredData = filteredData.filter((h) => h.halaqah === filterHalaqah);
+  }
 
   // Fallback summary map used when item.totalJuz is missing
   const [summaryMap, setSummaryMap] = useState<Record<string, number>>({});
@@ -75,18 +87,18 @@ export default function LaporanPage() {
     return () => { mounted = false; };
   }, [monthlyData, selectedYear]);
 
-  // Calculate stats based on rekap data
-  const totalBulanIni = rekapData?.totalSetoran || 0;
-  const totalSantri = rekapData?.totalSantri || 0;
-  const santriAktif = rekapData?.santriAktif || 0;
+  // Calculate stats based on filtered data
+  const totalBulanIni = filteredData.reduce((acc, h) => acc + h.totalHalamanBulan, 0);
+  const totalSantri = filteredData.length;
+  const santriAktif = filteredData.filter((h) => h.isActive).length;
   const rataRata = totalSantri > 0 ? (totalBulanIni / totalSantri).toFixed(1) : '0';
 
   // Target achievement (using same logic: 12 pages/month)
-  const tercapai = monthlyData.filter((s) => s.totalHalamanBulan >= 12).length;
+  const tercapai = filteredData.filter((s) => s.totalHalamanBulan >= 12).length;
 
   // Group data for summaries
   const getHafalanByMusyrif = () => {
-    const grouped = monthlyData.reduce((acc, s) => {
+    const grouped = filteredData.reduce((acc, s) => {
       if (!acc[s.halaqah]) {
         acc[s.halaqah] = { totalHafalan: 0, jumlahSantri: 0, musyrif: s.halaqah };
       }
@@ -103,7 +115,7 @@ export default function LaporanPage() {
   };
 
   const getHafalanByKelas = () => {
-    const grouped = monthlyData.reduce((acc, s) => {
+    const grouped = filteredData.reduce((acc, s) => {
       if (!acc[s.kelas]) {
         acc[s.kelas] = { totalHafalan: 0, jumlahSantri: 0, kelas: s.kelas };
       }
@@ -133,7 +145,7 @@ export default function LaporanPage() {
   const handleExportPDF = () => {
     // Export as CSV for now
     const headers = ['No', 'Nama Santri', 'Halaqah', 'Angkatan', `Hafalan ${selectedMonth}`, 'Update Terakhir', 'Total Juz', 'Status'];
-    const rows = monthlyData.map((item, index) => [
+    const rows = filteredData.map((item, index) => [
       index + 1,
       item.santriNama,
       item.halaqah,
@@ -191,7 +203,35 @@ export default function LaporanPage() {
               }
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            {user?.role === 'admin' && (
+              <Select value={filterHalaqah} onValueChange={setFilterHalaqah}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Semua Halaqah" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Halaqah</SelectItem>
+                  {halaqahNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <Select value={filterKelas} onValueChange={setFilterKelas}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Semua Angkatan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Angkatan</SelectItem>
+                <SelectItem value="Angkatan 1">Angkatan 1</SelectItem>
+                <SelectItem value="Angkatan 2">Angkatan 2</SelectItem>
+                <SelectItem value="Angkatan 3">Angkatan 3</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
               <SelectTrigger className="w-[130px]">
                 <SelectValue />
@@ -266,7 +306,7 @@ export default function LaporanPage() {
           <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
             <p className="text-sm text-muted-foreground">Belum Tercapai</p>
             <p className="text-2xl font-bold text-amber-600">
-              {monthlyData.length - tercapai} santri
+              {filteredData.length - tercapai} santri
             </p>
           </div>
         </div>
@@ -297,14 +337,14 @@ export default function LaporanPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {monthlyData.length === 0 ? (
+              {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Tidak ada data untuk periode ini
                   </TableCell>
                 </TableRow>
               ) : (
-                monthlyData.map((item, index) => (
+                filteredData.map((item, index) => (
                   <TableRow key={item.santriId} className="hover:bg-accent/50">
                     <TableCell>{index + 1}</TableCell>
                     <TableCell className="font-medium">{item.santriNama}</TableCell>
