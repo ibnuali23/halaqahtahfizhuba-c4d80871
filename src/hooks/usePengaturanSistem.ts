@@ -42,7 +42,7 @@ export function usePengaturanSistem() {
   }, []);
 
   useEffect(() => {
-    if (user?.role === 'admin') {
+    if (user) {
       fetchSettings();
     } else {
       setIsLoading(false);
