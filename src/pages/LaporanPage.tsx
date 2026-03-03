@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRekapHafalan, bulanList, getCurrentBulan, RekapSantri } from '@/hooks/useRekapHafalan';
 import { supabase } from '@/integrations/supabase/client';
 import { getWIBTime } from '@/hooks/useAbsensi';
+import { usePengaturanSistem } from '@/hooks/usePengaturanSistem';
 import { Download, Printer, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,8 @@ export default function LaporanPage() {
   const [filterHalaqah, setFilterHalaqah] = useState<string>('all');
 
   const { data: rekapData, isLoading } = useRekapHafalan(selectedMonth, selectedYear);
+  const { settings: pengaturanSistem } = usePengaturanSistem();
+  const targetBulanan = pengaturanSistem?.target_hafalan_bulanan ?? 12;
 
   // monthlyData now comes from rekapData.rekap
   const monthlyData: RekapSantri[] = useMemo(() => rekapData?.rekap || [], [rekapData]);
@@ -93,8 +96,8 @@ export default function LaporanPage() {
   const santriAktif = filteredData.filter((h) => h.isActive).length;
   const rataRata = totalSantri > 0 ? (totalBulanIni / totalSantri).toFixed(1) : '0';
 
-  // Target achievement (using same logic: 12 pages/month)
-  const tercapai = filteredData.filter((s) => s.totalHalamanBulan >= 12).length;
+  // Target achievement using dynamic setting
+  const tercapai = filteredData.filter((s) => s.totalHalamanBulan >= targetBulanan).length;
 
   // Group data for summaries
   const getHafalanByMusyrif = () => {
@@ -161,7 +164,7 @@ export default function LaporanPage() {
       item.totalHalamanBulan,
       item.ayatTerakhir,
       (summaryMap[item.santriId] ?? item.totalJuz ?? 0),
-      item.totalHalamanBulan >= 12 ? 'Tercapai' : 'Tidak Tercapai',
+      item.totalHalamanBulan >= targetBulanan ? 'Tercapai' : 'Tidak Tercapai',
     ]);
 
     const csvContent = [
@@ -374,12 +377,12 @@ export default function LaporanPage() {
                     <TableCell>
                       <Badge
                         className={cn(
-                          item.totalHalamanBulan >= 12
+                          item.totalHalamanBulan >= targetBulanan
                             ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
                             : 'bg-amber-100 text-amber-700 hover:bg-amber-100'
                         )}
                       >
-                        {item.totalHalamanBulan >= 12 ? 'Tercapai' : 'Tidak Tercapai'}
+                        {item.totalHalamanBulan >= targetBulanan ? 'Tercapai' : 'Tidak Tercapai'}
                       </Badge>
                     </TableCell>
                   </TableRow>
