@@ -91,13 +91,16 @@ export default function InputHafalanPage() {
       // Update total juz in hafalan_summary if provided and valid
       if (data.totalJuz !== '' && data.totalJuz !== null && !isNaN(Number(data.totalJuz))) {
         const total = parseFloat(String(data.totalJuz));
+        // Check if summary exists first
         const { data: summaryResult, error: summaryError } = await supabase
           .from('hafalan_summary')
           .upsert({
             santri_id: data.santriId,
             tahun: parseInt(data.tahun),
-            total_hafalan: total
-          }, { onConflict: ['santri_id', 'tahun'] });
+            total_hafalan: total,
+          }, { onConflict: 'santri_id,tahun' })
+          .select();
+
 
         if (summaryError) {
           console.error('Error updating summary:', summaryError);

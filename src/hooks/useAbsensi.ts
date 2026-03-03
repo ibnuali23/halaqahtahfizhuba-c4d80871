@@ -118,8 +118,23 @@ export async function reverseGeocode(
         },
       }
     );
+
+    if (!response.ok) {
+      throw new Error('API request failed');
+    }
+
     const data = await response.json();
-    return data.display_name || `${lat}, ${lon}`;
+
+    if (!data || typeof data.display_name !== 'string') {
+      return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    }
+
+    // Sanitize and limit length
+    const address = data.display_name
+      .substring(0, 500)
+      .replace(/[<>]/g, '');
+
+    return address || `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
   } catch {
     return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
   }
