@@ -37,7 +37,6 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedHalaqah, setSelectedHalaqah] = useState<string>(user?.role === 'guru' ? user?.musyrifNama || 'all' : 'all');
 
-  const { data: dbHafalanSummary, isLoading: isSummaryLoading } = useHafalanSummary(selectedYear);
   const { data: rekapData, isLoading: isRekapLoading } = useRekapHafalan(selectedMonth, selectedYear);
   const { data: santriData } = useSantri();
 
@@ -49,40 +48,31 @@ export default function DashboardPage() {
     filteredRekap = filteredRekap.filter(r => r.halaqah === selectedHalaqah);
   }
 
-  // Use database summary if available
-  const currentSummaryData = dbHafalanSummary || [];
 
-  // Calculate stats based on summary data
-  const stats = user?.role === 'admin'
-    ? getStats()
-    : {
-      totalSantri: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length,
-      totalHafalan: currentSummaryData
-        .filter(s => s.musyrif === user?.musyrifNama)
-        .reduce((acc, s) => acc + s.totalHafalan, 0).toFixed(1),
-      rataRataHafalan: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length > 0
-        ? (currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).reduce((acc, s) => acc + s.totalHafalan, 0) /
-          currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length).toFixed(1)
-        : '0',
-      santriTercapai: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama && s.status === 'tercapai').length,
-      santriTidakTercapai: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama && s.status === 'tidak tercapai').length,
-      persentaseTercapai: currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length > 0
-        ? Math.round((currentSummaryData.filter(s => s.musyrif === user?.musyrifNama && s.status === 'tercapai').length /
-          currentSummaryData.filter(s => s.musyrif === user?.musyrifNama).length) * 100)
-        : 0,
-    };
+  // Calculate stats based on rekap data (which respects the month filter)
+  const stats = {
+    totalSantri: filteredRekap.length,
+    totalHafalan: filteredRekap.reduce((acc, r) => acc + r.totalHalamanBulan, 0).toFixed(1),
+    rataRataHafalan: filteredRekap.length > 0
+      ? (filteredRekap.reduce((acc, r) => acc + r.totalHalamanBulan, 0) / filteredRekap.length).toFixed(1)
+      : '0',
+    santriTercapai: filteredRekap.filter(r => r.totalHalamanBulan >= 12).length,
+    santriTidakTercapai: filteredRekap.filter(r => r.totalHalamanBulan < 12 && r.totalHalamanBulan > 0).length,
+    persentaseTercapai: filteredRekap.length > 0
+      ? Math.round((filteredRekap.filter(r => r.totalHalamanBulan >= 12).length / filteredRekap.length) * 100)
+      : 0,
+  };
 
   const hafalanByMusyrif = user?.role === 'admin'
     ? getHafalanByMusyrif()
     : getHafalanByMusyrif().filter(m => m.musyrif === user?.musyrifNama);
 
-  // Get top performers from filtered data
-  const topPerformers = [...(dbHafalanSummary || [])]
-    .filter(s => user?.role === 'admin' || s.musyrif === user?.musyrifNama)
-    .sort((a, b) => b.totalHafalan - a.totalHafalan)
+  // Get top performers from filtered rekap data (Sorted by Monthly Total Juz)
+  const topPerformers = [...filteredRekap]
+    .sort((a, b) => (b.totalJuz || 0) - (a.totalJuz || 0))
     .slice(0, 5);
 
-  if (isSummaryLoading || isRekapLoading) {
+  if (isRekapLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center py-12">
@@ -250,12 +240,12 @@ export default function DashboardPage() {
                         {santri.santriNama}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {santri.musyrif}
+                        {santri.halaqah}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-primary">
-                        {santri.totalHafalan}
+                        {santri.totalJuz || 0}
                       </p>
                       <p className="text-xs text-muted-foreground">Juz</p>
                     </div>

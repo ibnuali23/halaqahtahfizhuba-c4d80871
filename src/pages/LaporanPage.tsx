@@ -52,40 +52,6 @@ export default function LaporanPage() {
     filteredData = filteredData.filter((h) => h.halaqah === filterHalaqah);
   }
 
-  // Fallback summary map used when item.totalJuz is missing
-  const [summaryMap, setSummaryMap] = useState<Record<string, number>>({});
-  const summaryCount = Object.keys(summaryMap).length;
-
-  useEffect(() => {
-    const ids = monthlyData.map(d => d.santriId);
-    if (!ids.length) {
-      setSummaryMap({});
-      return;
-    }
-
-    let mounted = true;
-    (async () => {
-      const { data, error } = await supabase
-        .from('hafalan_summary')
-        .select('santri_id, total_hafalan')
-        .in('santri_id', ids)
-        .eq('tahun', selectedYear);
-
-      if (error) {
-        console.error('Error fetching hafalan_summary for laporan:', error);
-        return;
-      }
-
-      if (!mounted) return;
-      const map = (data || []).reduce((acc: Record<string, number>, row) => {
-        acc[row.santri_id] = Number(row.total_hafalan) || 0;
-        return acc;
-      }, {} as Record<string, number>);
-      setSummaryMap(map);
-    })();
-
-    return () => { mounted = false; };
-  }, [monthlyData, selectedYear]);
 
   // Calculate stats based on filtered data
   const totalBulanIni = filteredData.reduce((acc, h) => acc + h.totalHalamanBulan, 0);
@@ -100,43 +66,57 @@ export default function LaporanPage() {
   const getHafalanByMusyrif = () => {
     const grouped = filteredData.reduce((acc, s) => {
       if (!acc[s.halaqah]) {
-        acc[s.halaqah] = { totalHafalan: 0, jumlahSantri: 0, musyrif: s.halaqah };
+        acc[s.halaqah] = {
+          musyrif: s.halaqah,
+          jumlahSantri: 0,
+          terbaik: { nama: s.santriNama, amount: s.totalHalamanBulan },
+          terendah: { nama: s.santriNama, amount: s.totalHalamanBulan }
+        };
       }
-      acc[s.halaqah].totalHafalan += s.totalHalamanBulan;
       acc[s.halaqah].jumlahSantri += 1;
+      if (s.totalHalamanBulan > acc[s.halaqah].terbaik.amount) {
+        acc[s.halaqah].terbaik = { nama: s.santriNama, amount: s.totalHalamanBulan };
+      }
+      if (s.totalHalamanBulan < acc[s.halaqah].terendah.amount) {
+        acc[s.halaqah].terendah = { nama: s.santriNama, amount: s.totalHalamanBulan };
+      }
       return acc;
-    }, {} as Record<string, { totalHafalan: number; jumlahSantri: number; musyrif: string }>);
+    }, {} as Record<string, {
+      musyrif: string;
+      jumlahSantri: number;
+      terbaik: { nama: string; amount: number };
+      terendah: { nama: string; amount: number };
+    }>);
 
-    return Object.values(grouped).map(d => {
-      const totalNum = Number(d.totalHafalan);
-      const count = Number(d.jumlahSantri);
-      return {
-        ...d,
-        totalHafalan: totalNum.toFixed(1),
-        rataRata: count > 0 ? (totalNum / count).toFixed(1) : '0'
-      };
-    });
+    return Object.values(grouped).sort((a, b) => a.musyrif.localeCompare(b.musyrif));
   };
 
   const getHafalanByKelas = () => {
     const grouped = filteredData.reduce((acc, s) => {
       if (!acc[s.kelas]) {
-        acc[s.kelas] = { totalHafalan: 0, jumlahSantri: 0, kelas: s.kelas };
+        acc[s.kelas] = {
+          kelas: s.kelas,
+          jumlahSantri: 0,
+          terbaik: { nama: s.santriNama, amount: s.totalHalamanBulan },
+          terendah: { nama: s.santriNama, amount: s.totalHalamanBulan }
+        };
       }
-      acc[s.kelas].totalHafalan += s.totalHalamanBulan;
       acc[s.kelas].jumlahSantri += 1;
+      if (s.totalHalamanBulan > acc[s.kelas].terbaik.amount) {
+        acc[s.kelas].terbaik = { nama: s.santriNama, amount: s.totalHalamanBulan };
+      }
+      if (s.totalHalamanBulan < acc[s.kelas].terendah.amount) {
+        acc[s.kelas].terendah = { nama: s.santriNama, amount: s.totalHalamanBulan };
+      }
       return acc;
-    }, {} as Record<string, { totalHafalan: number; jumlahSantri: number; kelas: string }>);
+    }, {} as Record<string, {
+      kelas: string;
+      jumlahSantri: number;
+      terbaik: { nama: string; amount: number };
+      terendah: { nama: string; amount: number };
+    }>);
 
-    return Object.values(grouped).map(d => {
-      const totalNum = Number(d.totalHafalan);
-      const count = Number(d.jumlahSantri);
-      return {
-        ...d,
-        totalHafalan: totalNum.toFixed(1),
-        rataRata: count > 0 ? (totalNum / count).toFixed(1) : '0'
-      };
-    });
+    return Object.values(grouped).sort((a, b) => a.kelas.localeCompare(b.kelas));
   };
 
   const hafalanByMusyrif = user?.role === 'admin'
@@ -160,7 +140,6 @@ export default function LaporanPage() {
       item.kelas,
       item.totalHalamanBulan,
       item.ayatTerakhir,
-      (summaryMap[item.santriId] ?? item.totalJuz ?? 0),
       item.totalHalamanBulan >= 12 ? 'Tercapai' : 'Tidak Tercapai',
     ]);
 
@@ -369,7 +348,7 @@ export default function LaporanPage() {
                       {item.ayatTerakhir}
                     </TableCell>
                     <TableCell className="text-center font-bold text-secondary">
-                      {summaryMap[item.santriId] ?? item.totalJuz ?? 0}
+                      {item.totalJuz ?? 0}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -410,13 +389,17 @@ export default function LaporanPage() {
                     <span className="text-muted-foreground">Santri:</span>
                     <span className="font-medium">{item.jumlahSantri}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total:</span>
-                    <span className="font-medium">{item.totalHafalan} Juz</span>
+                  <div className="flex flex-col text-sm mt-1">
+                    <span className="text-muted-foreground">Paling banyak:</span>
+                    <span className="font-medium text-primary">
+                      {item.terbaik.nama} ({item.terbaik.amount} hal)
+                    </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Rata-rata:</span>
-                    <span className="font-medium">{item.rataRata} Juz</span>
+                  <div className="flex flex-col text-sm mt-1">
+                    <span className="text-muted-foreground">Paling sedikit:</span>
+                    <span className="font-medium text-secondary">
+                      {item.terendah.nama} ({item.terendah.amount} hal)
+                    </span>
                   </div>
                 </div>
               ))}
@@ -444,13 +427,17 @@ export default function LaporanPage() {
                   <span className="text-muted-foreground">Santri:</span>
                   <span className="font-medium">{item.jumlahSantri}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total:</span>
-                  <span className="font-medium">{item.totalHafalan} Juz</span>
+                <div className="flex flex-col text-sm mt-1">
+                  <span className="text-muted-foreground">Paling banyak:</span>
+                  <span className="font-medium text-primary">
+                    {item.terbaik.nama} ({item.terbaik.amount} hal)
+                  </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Rata-rata:</span>
-                  <span className="font-medium">{item.rataRata} Juz</span>
+                <div className="flex flex-col text-sm mt-1">
+                  <span className="text-muted-foreground">Paling sedikit:</span>
+                  <span className="font-medium text-secondary">
+                    {item.terendah.nama} ({item.terendah.amount} hal)
+                  </span>
                 </div>
               </div>
             ))}

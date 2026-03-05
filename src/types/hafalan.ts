@@ -29,6 +29,12 @@ export interface HafalanSummary {
   santriNama: string;
   musyrif: string;
   kelas: KelasType;
+  januari: number;
+  februari: number;
+  maret: number;
+  april: number;
+  mei: number;
+  juni: number;
   juli: number;
   agustus: number;
   september: number;

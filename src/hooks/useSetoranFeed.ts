@@ -134,6 +134,7 @@ export function useUpdateSetoran() {
       queryClient.invalidateQueries({ queryKey: ['setoran_feed'] });
       queryClient.invalidateQueries({ queryKey: ['hafalan_summary'] });
       queryClient.invalidateQueries({ queryKey: ['today_stats'] });
+      queryClient.invalidateQueries({ queryKey: ['rekap_hafalan'] });
     },
   });
 }

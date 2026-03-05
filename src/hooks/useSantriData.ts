@@ -18,6 +18,12 @@ export interface HafalanSummaryDB {
   id: string;
   santri_id: string;
   tahun: number;
+  januari: number;
+  februari: number;
+  maret: number;
+  april: number;
+  mei: number;
+  juni: number;
   juli: number;
   agustus: number;
   september: number;
@@ -114,31 +120,46 @@ export function useHafalanSummary(tahun: number = 2025) {
       if (santriError) throw santriError;
 
       // Join the data
-      const summaryWithSantri: HafalanSummary[] = (summaryData || []).map((summary) => {
-        const santri = (santriData || []).find((s) => s.id === summary.santri_id);
-        const totalBulanan =
+      const summaryWithSantri: HafalanSummary[] = (santriData || []).map((santri) => {
+        const summary = (summaryData || []).find((s) => s.santri_id === santri.id);
+        const totalSatuTahun = summary ? (
+          Number(summary.januari || 0) +
+          Number(summary.februari || 0) +
+          Number(summary.maret || 0) +
+          Number(summary.april || 0) +
+          Number(summary.mei || 0) +
+          Number(summary.juni || 0) +
           Number(summary.juli || 0) +
           Number(summary.agustus || 0) +
           Number(summary.september || 0) +
           Number(summary.oktober || 0) +
           Number(summary.november || 0) +
-          Number(summary.desember || 0);
+          Number(summary.desember || 0)
+        ) : 0;
+
+        const targetBulanan = summary?.target_bulanan || 12;
 
         return {
-          santriId: summary.santri_id,
-          santriNama: santri?.nama || 'Unknown',
-          musyrif: santri?.musyrif || 'Unknown',
-          kelas: santri?.kelas as 'Angkatan 1' | 'Angkatan 2' | 'Angkatan 3',
-          juli: Number(summary.juli || 0),
-          agustus: Number(summary.agustus || 0),
-          september: Number(summary.september || 0),
-          oktober: Number(summary.oktober || 0),
-          november: Number(summary.november || 0),
-          desember: Number(summary.desember || 0),
-          totalHafalan: Number(summary.total_hafalan || 0),
-          setoranTerakhir: summary.setoran_terakhir || '-',
-          status: totalBulanan >= (summary.target_bulanan * 4) ? 'tercapai' : 'tidak tercapai',
-          targetBulanan: summary.target_bulanan || 12,
+          santriId: santri.id,
+          santriNama: santri.nama,
+          musyrif: santri.musyrif,
+          kelas: santri.kelas as 'Angkatan 1' | 'Angkatan 2' | 'Angkatan 3',
+          januari: Number(summary?.januari || 0),
+          februari: Number(summary?.februari || 0),
+          maret: Number(summary?.maret || 0),
+          april: Number(summary?.april || 0),
+          mei: Number(summary?.mei || 0),
+          juni: Number(summary?.juni || 0),
+          juli: Number(summary?.juli || 0),
+          agustus: Number(summary?.agustus || 0),
+          september: Number(summary?.september || 0),
+          oktober: Number(summary?.oktober || 0),
+          november: Number(summary?.november || 0),
+          desember: Number(summary?.desember || 0),
+          totalHafalan: Number(summary?.total_hafalan || 0),
+          setoranTerakhir: summary?.setoran_terakhir || '-',
+          status: totalSatuTahun >= (targetBulanan * 4) ? 'tercapai' : 'tidak tercapai',
+          targetBulanan: targetBulanan,
         };
       });
 

@@ -74,34 +74,30 @@ export function useRekapHafalan(bulan: string, tahun: number) {
         setoranData = [];
       }
 
-      // Fetch summary for total juz from hafalan_summary (limit to santriIds to satisfy RLS)
-      const { data: summaryData, error: summaryError } = await supabase
-        .from('hafalan_summary')
-        .select('santri_id, total_hafalan')
+      // Fetch total juz strictly for the selected month and year
+      const { data: monthlyDataJuz, error: monthlyError } = await supabase
+        .from('setoran_hafalan')
+        .select('santri_id, total_juz, tanggal')
         .in('santri_id', santriIds)
-        .eq('tahun', tahun);
+        .eq('bulan', bulan)
+        .eq('tahun', tahun)
+        .not('total_juz', 'is', null)
+        .gt('total_juz', 0)
+        .order('tanggal', { ascending: false });
 
-      if (summaryError) throw summaryError;
-      const summaryMap = (summaryData || []).reduce((acc, s) => {
-        acc[s.santri_id] = Number(s.total_hafalan) || 0;
-        return acc;
-      }, {} as Record<string, number>);
-      console.log('Debug: summaryMap:', summaryMap);
+      if (monthlyError) throw monthlyError;
 
-      // Also build a map from the latest setoran's total_juz per santri
-      const setoranJuzMap: Record<string, number> = {};
-      for (const setoran of setoranData) {
-        const sid = setoran.santri_id;
-        // setoranData is ordered desc by tanggal, so first occurrence is latest
-        if (!(sid in setoranJuzMap) && setoran.total_juz && setoran.total_juz > 0) {
-          setoranJuzMap[sid] = Number(setoran.total_juz);
+      const monthlyJuzMap: Record<string, number> = {};
+      (monthlyDataJuz || []).forEach(s => {
+        if (!(s.santri_id in monthlyJuzMap)) {
+          monthlyJuzMap[s.santri_id] = Number(s.total_juz);
         }
-      }
+      });
 
       // Build rekap per santri
       const rekapMap: Record<string, RekapSantri> = {};
 
-      // Initialize with fetched santri (all or only wali's children)
+      // Initialize with fetched santri
       for (const santri of santriData || []) {
         rekapMap[santri.id] = {
           santriId: santri.id,
@@ -113,7 +109,7 @@ export function useRekapHafalan(bulan: string, tahun: number) {
           ayatTerakhir: '-',
           tanggalTerakhir: '-',
           isActive: false,
-          totalJuz: setoranJuzMap[santri.id] || summaryMap[santri.id] || 0,
+          totalJuz: monthlyJuzMap[santri.id] || 0,
         };
       }
 
