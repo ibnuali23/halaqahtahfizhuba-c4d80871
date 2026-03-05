@@ -120,13 +120,13 @@ export function useUpdateSetoran() {
       if (updateError) throw updateError;
 
       // Log the change
-      const { error: logError } = await supabase.from('hafalan_log').insert({
+      const { error: logError } = await supabase.from('hafalan_log').insert([{
         setoran_id: id,
         action: 'updated',
-        old_data: old_data,
-        new_data: updateData,
+        old_data: old_data as unknown as Record<string, never>,
+        new_data: updateData as unknown as Record<string, never>,
         performed_by: user!.id,
-      });
+      }]);
 
       if (logError) console.error('Failed to log change:', logError);
     },
@@ -146,13 +146,13 @@ export function useDeleteSetoran() {
   return useMutation({
     mutationFn: async (data: { id: string; old_data: Record<string, unknown>; reason?: string }) => {
       // Log the deletion first
-      const { error: logError } = await supabase.from('hafalan_log').insert({
+      const { error: logError } = await supabase.from('hafalan_log').insert([{
         setoran_id: data.id,
         action: 'deleted',
-        old_data: data.old_data,
+        old_data: data.old_data as unknown as Record<string, never>,
         reason: data.reason,
         performed_by: user!.id,
-      });
+      }]);
 
       if (logError) console.error('Failed to log deletion:', logError);
 
