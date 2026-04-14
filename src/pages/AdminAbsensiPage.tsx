@@ -774,9 +774,9 @@ export default function AdminAbsensiPage() {
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <XCircle className="h-4 w-4" />
-                              <span className="text-sm">Tidak Hadir</span>
+                            <div className="flex items-center gap-2">
+                              <XCircle className="h-4 w-4 text-red-500" />
+                              <Badge className="bg-red-500 text-white">Alfa</Badge>
                             </div>
                           )}
                         </TableCell>
