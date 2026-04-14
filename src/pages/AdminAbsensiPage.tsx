@@ -34,6 +34,7 @@ import {
   useHalaqahLocations,
   useSaveHalaqahLocation,
   useDeleteHalaqahLocation,
+  useGuruProfiles,
   AbsensiRecord,
   WaktuHalaqah,
   getWIBDate,
