@@ -416,8 +416,9 @@ export default function AdminAbsensiPage() {
 
   const { data: absensiData, isLoading } = useAllAbsensi(month, year);
   const { data: todayStats } = useTodayAbsensiStats();
+  const { data: allGuruProfiles } = useGuruProfiles();
 
-  // Filter data
+  // Filter data (include generated alfa records)
   let filteredData = absensiData || [];
 
   if (filterGuru !== 'all') {
@@ -428,32 +429,30 @@ export default function AdminAbsensiPage() {
     filteredData = filteredData.filter((a) => a.waktu_halaqah === filterWaktu);
   }
 
-  // Get unique guru names
-  const guruNames = Array.from(new Set(absensiData?.map((a) => a.user_nama) || []));
+  // Get unique guru names from profiles (not just from attendance records)
+  const guruNames = useMemo(() => {
+    const fromProfiles = (allGuruProfiles || []).map((p) => p.nama);
+    const fromRecords = (absensiData || []).map((a) => a.user_nama).filter(Boolean);
+    return Array.from(new Set([...fromProfiles, ...fromRecords])).sort();
+  }, [allGuruProfiles, absensiData]);
 
-  // Create daily summary per guru (grouped by tanggal + user_nama)
+  // Create daily summary per guru with auto-alfa for missing check-ins
   const dailySummary = useMemo(() => {
-    if (!absensiData || absensiData.length === 0) return [];
+    const guruList = (allGuruProfiles || []).map((p) => p.nama);
+    if (guruList.length === 0 && (!absensiData || absensiData.length === 0)) return [];
 
-    const summaryMap = new Map<string, {
-      tanggal: string;
-      user_nama: string;
+    // Build attendance lookup: key = "tanggal_userName"
+    const attendanceMap = new Map<string, {
       subuh: AbsensiRecord | null;
       maghrib: AbsensiRecord | null;
     }>();
 
-    absensiData.forEach((record) => {
+    (absensiData || []).forEach((record) => {
       const key = `${record.tanggal}_${record.user_nama}`;
-      if (!summaryMap.has(key)) {
-        summaryMap.set(key, {
-          tanggal: record.tanggal,
-          user_nama: record.user_nama || 'Unknown',
-          subuh: null,
-          maghrib: null,
-        });
+      if (!attendanceMap.has(key)) {
+        attendanceMap.set(key, { subuh: null, maghrib: null });
       }
-
-      const entry = summaryMap.get(key)!;
+      const entry = attendanceMap.get(key)!;
       if (record.waktu_halaqah === 'subuh') {
         entry.subuh = record;
       } else if (record.waktu_halaqah === 'maghrib') {
@@ -461,10 +460,52 @@ export default function AdminAbsensiPage() {
       }
     });
 
-    return Array.from(summaryMap.values()).sort((a, b) =>
+    // Generate dates from day 1 to today (or end of month if past)
+    const today = getWIBDate();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const todayDate = new Date(today);
+    const dates: string[] = [];
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      // Only include dates up to today
+      if (new Date(dateStr) <= todayDate) {
+        dates.push(dateStr);
+      }
+    }
+
+    // For each date and each guru, create summary entry
+    const result: {
+      tanggal: string;
+      user_nama: string;
+      subuh: AbsensiRecord | null;
+      maghrib: AbsensiRecord | null;
+      subuhAlfa: boolean;
+      maghribAlfa: boolean;
+    }[] = [];
+
+    const allGuru = guruList.length > 0 ? guruList : Array.from(new Set((absensiData || []).map(a => a.user_nama)));
+
+    dates.forEach((dateStr) => {
+      allGuru.forEach((guruNama) => {
+        const key = `${dateStr}_${guruNama}`;
+        const existing = attendanceMap.get(key);
+
+        result.push({
+          tanggal: dateStr,
+          user_nama: guruNama,
+          subuh: existing?.subuh || null,
+          maghrib: existing?.maghrib || null,
+          subuhAlfa: !existing?.subuh,
+          maghribAlfa: !existing?.maghrib,
+        });
+      });
+    });
+
+    return result.sort((a, b) =>
       new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
     );
-  }, [absensiData]);
+  }, [absensiData, allGuruProfiles, month, year]);
 
   // Filter daily summary
   const filteredDailySummary = dailySummary.filter((s) => {
