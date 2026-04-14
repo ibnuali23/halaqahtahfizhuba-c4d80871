@@ -511,6 +511,8 @@ export default function AdminAbsensiPage() {
   // Filter daily summary
   const filteredDailySummary = dailySummary.filter((s) => {
     if (filterGuru !== 'all' && s.user_nama !== filterGuru) return false;
+    if (filterWaktu === 'subuh') return s.subuh !== null || s.subuhAlfa;
+    if (filterWaktu === 'maghrib') return s.maghrib !== null || s.maghribAlfa;
     return true;
   });
 
