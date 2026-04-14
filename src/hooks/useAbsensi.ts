@@ -167,6 +167,36 @@ export function getWIBDate(): string {
   return formatter.format(now);
 }
 
+export function useGuruProfiles() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['guru_profiles'],
+    queryFn: async () => {
+      // Get all guru user_ids from user_roles
+      const { data: guruRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'guru');
+
+      if (rolesError) throw rolesError;
+
+      const guruUserIds = (guruRoles || []).map((r) => r.user_id);
+      if (guruUserIds.length === 0) return [];
+
+      // Get profiles for those users
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, nama')
+        .in('user_id', guruUserIds);
+
+      if (profilesError) throw profilesError;
+      return profiles || [];
+    },
+    enabled: !!user && user.role === 'admin',
+  });
+}
+
 export function useHalaqahLocations() {
   const { user } = useAuth();
 
