@@ -88,7 +88,8 @@ export default function RekapBulananPage() {
   const santriAktif = filteredData.filter((h) => h.isActive).length;
   const totalSantri = filteredData.length;
   const targetBulanan = settings?.target_hafalan_bulanan || 12;
-  const progressPercentage = Math.min((totalSetoran / (totalSantri * targetBulanan)) * 100, 100);
+  const santriTercapai = filteredData.filter((h) => h.totalHalamanBulan >= targetBulanan).length;
+  const progressPercentage = totalSantri > 0 ? Math.min((santriTercapai / totalSantri) * 100, 100) : 0;
 
   const handleExportCSV = () => {
     if (!filteredData.length) {
