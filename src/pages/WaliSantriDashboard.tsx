@@ -293,6 +293,7 @@ export default function WaliSantriDashboard() {
                       <TableHead>Halaqah</TableHead>
                       <TableHead className="text-center">Total Halaman</TableHead>
                       <TableHead className="text-center">Jumlah Setoran</TableHead>
+                      <TableHead className="text-center">Total Juz</TableHead>
                       <TableHead>Ayat Terakhir</TableHead>
                       <TableHead>Tanggal Terakhir</TableHead>
                       <TableHead className="text-center">Aksi</TableHead>
