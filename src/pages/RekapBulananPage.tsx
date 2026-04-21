@@ -248,12 +248,12 @@ export default function RekapBulananPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Progres Hafalan Bulan {bulan}</span>
+              <span className="text-sm font-medium">Progres Pencapaian Target Bulan {bulan}</span>
               <span className="text-sm text-muted-foreground">{progressPercentage.toFixed(1)}%</span>
             </div>
             <Progress value={progressPercentage} className="h-3" />
             <p className="text-xs text-muted-foreground mt-2">
-              {totalSetoran} dari {totalSantri * targetBulanan} halaman target
+              {santriTercapai} dari {totalSantri} santri telah mencapai target {targetBulanan} halaman
             </p>
           </CardContent>
         </Card>
