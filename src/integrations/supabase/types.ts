@@ -322,7 +322,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          kelas: Database["public"]["Enums"]["kelas_type"]
+          kelas: string
           musyrif: string
           nama: string
           status: string | null
@@ -332,7 +332,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          kelas: Database["public"]["Enums"]["kelas_type"]
+          kelas: string
           musyrif: string
           nama: string
           status?: string | null
@@ -342,7 +342,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          kelas?: Database["public"]["Enums"]["kelas_type"]
+          kelas?: string
           musyrif?: string
           nama?: string
           status?: string | null
