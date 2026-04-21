@@ -45,8 +45,7 @@ import { SantriDB, useSantri } from '@/hooks/useSantriData';
 import { supabase } from '@/integrations/supabase/client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 
-type KelasType = 'Angkatan 1' | 'Angkatan 2' | 'Angkatan 3';
-const kelasOptions: KelasType[] = ['Angkatan 1', 'Angkatan 2', 'Angkatan 3'];
+type KelasType = string;
 
 // Hook to fetch musyrif list from existing data or profiles
 function useMusyrifList() {
@@ -142,7 +141,7 @@ export default function SantriPage() {
     wali_id: string | null;
   }>({
     nama: '',
-    kelas: 'Angkatan 1',
+    kelas: '',
     musyrif: '',
     wali_id: 'none', // 'none' represents null in Select
   });
@@ -220,7 +219,7 @@ export default function SantriPage() {
       setEditingSantri(null);
       setFormData({
         nama: '',
-        kelas: 'Angkatan 1',
+        kelas: '',
         musyrif: '',
         wali_id: 'none',
       });
@@ -249,11 +248,12 @@ export default function SantriPage() {
     return 'outline';
   };
 
-  // Count per angkatan
-  const countPerAngkatan = kelasOptions.reduce((acc: Record<KelasType, number>, kelas) => {
+  // Dynamic count per angkatan based on existing santri data
+  const angkatanList = Array.from(new Set((santris || []).map((s) => s.kelas).filter(Boolean))).sort();
+  const countPerAngkatan: Record<string, number> = angkatanList.reduce((acc, kelas) => {
     acc[kelas] = (santris || []).filter((s) => s.kelas === kelas).length;
     return acc;
-  }, {} as Record<KelasType, number>);
+  }, {} as Record<string, number>);
 
   const getWaliName = (waliId?: string | null) => {
     if (!waliId) return '-';
@@ -306,23 +306,21 @@ export default function SantriPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="kelas">Angkatan</Label>
-                  <Select
+                  <Input
+                    id="kelas"
                     value={formData.kelas}
-                    onValueChange={(value: KelasType) =>
-                      setFormData({ ...formData, kelas: value })
+                    onChange={(e) =>
+                      setFormData({ ...formData, kelas: e.target.value })
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {kelasOptions.map((kelas) => (
-                        <SelectItem key={kelas} value={kelas}>
-                          {kelas}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Contoh: Angkatan 1, Angkatan 4, dll"
+                    required
+                    list="angkatan-suggestions"
+                  />
+                  <datalist id="angkatan-suggestions">
+                    {angkatanList.map((a) => (
+                      <option key={a} value={a} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="musyrif">Musyrif Halaqah</Label>
@@ -401,7 +399,7 @@ export default function SantriPage() {
               <p className="text-2xl font-bold">{santris?.length || 0}</p>
             </div>
           </div>
-          {kelasOptions.map((kelas) => (
+          {angkatanList.map((kelas) => (
             <div key={kelas} className="p-4 rounded-lg bg-card border flex items-center gap-4">
               <div className="h-12 w-12 rounded-lg bg-secondary/10 flex items-center justify-center">
                 <Users className="h-6 w-6 text-secondary" />
