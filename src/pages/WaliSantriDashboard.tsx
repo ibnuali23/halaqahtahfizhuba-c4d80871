@@ -326,6 +326,9 @@ export default function WaliSantriDashboard() {
                         <TableCell className="text-center">
                           <Badge variant="secondary">{h.jumlahSetoran}x</Badge>
                         </TableCell>
+                        <TableCell className="text-center font-bold text-secondary">
+                          {h.totalJuz}
+                        </TableCell>
                         <TableCell className="text-sm">{h.ayatTerakhir}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {h.tanggalTerakhir !== '-'
