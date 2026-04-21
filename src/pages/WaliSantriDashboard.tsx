@@ -141,8 +141,8 @@ export default function WaliSantriDashboard() {
                     <TrendingUp className="h-5 w-5 text-accent-foreground" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{filteredData.reduce((acc, h) => acc + h.jumlahSetoran, 0)}</p>
-                    <p className="text-xs text-muted-foreground">Jumlah Setoran</p>
+                    <p className="text-2xl font-bold text-foreground">{filteredData.filter((h) => h.isActive).length}</p>
+                    <p className="text-xs text-muted-foreground">Santri Aktif</p>
                   </div>
                 </div>
               </CardContent>
