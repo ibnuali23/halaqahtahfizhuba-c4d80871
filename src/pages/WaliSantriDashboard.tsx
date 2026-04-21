@@ -82,8 +82,9 @@ export default function WaliSantriDashboard() {
   const totalSetoran = filteredData.reduce((acc, h) => acc + h.totalHalamanBulan, 0);
   const totalSantri = filteredData.length;
   const targetBulanan = settings?.target_hafalan_bulanan || 12;
+  const santriTercapai = filteredData.filter((h) => h.totalHalamanBulan >= targetBulanan).length;
   const progressPercentage = totalSantri > 0
-    ? Math.min((totalSetoran / (totalSantri * targetBulanan)) * 100, 100)
+    ? Math.min((santriTercapai / totalSantri) * 100, 100)
     : 0;
 
   const openDetailModal = (santriId: string, santriNama: string) => {
