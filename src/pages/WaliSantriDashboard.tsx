@@ -82,8 +82,9 @@ export default function WaliSantriDashboard() {
   const totalSetoran = filteredData.reduce((acc, h) => acc + h.totalHalamanBulan, 0);
   const totalSantri = filteredData.length;
   const targetBulanan = settings?.target_hafalan_bulanan || 12;
+  const santriTercapai = filteredData.filter((h) => h.totalHalamanBulan >= targetBulanan).length;
   const progressPercentage = totalSantri > 0
-    ? Math.min((totalSetoran / (totalSantri * targetBulanan)) * 100, 100)
+    ? Math.min((santriTercapai / totalSantri) * 100, 100)
     : 0;
 
   const openDetailModal = (santriId: string, santriNama: string) => {
@@ -115,11 +116,13 @@ export default function WaliSantriDashboard() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-full bg-primary/10">
-                    <BookOpen className="h-5 w-5 text-primary" />
+                    <Target className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-primary">{totalSetoran.toFixed(1)}</p>
-                    <p className="text-xs text-muted-foreground">Total Halaman Bulan Ini</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {santriTercapai}<span className="text-base font-medium text-muted-foreground">/{totalSantri}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">Santri Tercapai Target</p>
                   </div>
                 </div>
               </CardContent>
@@ -171,12 +174,12 @@ export default function WaliSantriDashboard() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Progres Hafalan Bulan {bulan}</span>
+              <span className="text-sm font-medium">Progres Pencapaian Target Bulan {bulan}</span>
               <span className="text-sm text-muted-foreground">{progressPercentage.toFixed(1)}%</span>
             </div>
             <Progress value={progressPercentage} className="h-3" />
             <p className="text-xs text-muted-foreground mt-2">
-              {totalSetoran.toFixed(1)} dari {(totalSantri * targetBulanan).toFixed(0)} halaman target
+              {santriTercapai} dari {totalSantri} santri telah mencapai target {targetBulanan} halaman
             </p>
           </CardContent>
         </Card>
