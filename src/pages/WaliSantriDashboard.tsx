@@ -116,11 +116,13 @@ export default function WaliSantriDashboard() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-full bg-primary/10">
-                    <BookOpen className="h-5 w-5 text-primary" />
+                    <Target className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-primary">{totalSetoran.toFixed(1)}</p>
-                    <p className="text-xs text-muted-foreground">Total Halaman Bulan Ini</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {santriTercapai}<span className="text-base font-medium text-muted-foreground">/{totalSantri}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">Santri Tercapai Target</p>
                   </div>
                 </div>
               </CardContent>
