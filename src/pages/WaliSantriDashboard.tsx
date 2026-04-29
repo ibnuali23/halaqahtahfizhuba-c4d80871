@@ -34,10 +34,14 @@ import {
   TrendingUp,
   Eye,
   Target,
+  ArrowUpDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import SetoranDetailModal from '@/components/rekap/SetoranDetailModal';
+
+type SortField = 'nama' | 'totalHalaman' | 'totalJuz';
+type SortDirection = 'asc' | 'desc';
 
 export default function WaliSantriDashboard() {
   const { user } = useAuth();
@@ -46,6 +50,8 @@ export default function WaliSantriDashboard() {
   const [filterKelas, setFilterKelas] = useState<string>('all');
   const [filterHalaqah, setFilterHalaqah] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<SortField>('nama');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Modal state
   const [selectedSantri, setSelectedSantri] = useState<{
@@ -86,6 +92,34 @@ export default function WaliSantriDashboard() {
   const progressPercentage = totalSantri > 0
     ? Math.min((santriTercapai / totalSantri) * 100, 100)
     : 0;
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection(field === 'nama' ? 'asc' : 'desc');
+  };
+
+  const sortedData = [...filteredData].sort((a, b) => {
+    let comparison = 0;
+
+    if (sortField === 'nama') {
+      comparison = a.santriNama.localeCompare(b.santriNama, 'id');
+    } else if (sortField === 'totalHalaman') {
+      comparison = a.totalHalamanBulan - b.totalHalamanBulan;
+    } else {
+      comparison = (a.totalJuz ?? 0) - (b.totalJuz ?? 0);
+    }
+
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const sortIcon = (field: SortField) => (
+    <ArrowUpDown className={`h-3.5 w-3.5 ${sortField === field ? 'opacity-100' : 'opacity-50'}`} />
+  );
 
   const openDetailModal = (santriId: string, santriNama: string) => {
     setSelectedSantri({ id: santriId, nama: santriNama });
@@ -292,18 +326,30 @@ export default function WaliSantriDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">No</TableHead>
-                      <TableHead>Nama Santri</TableHead>
+                      <TableHead>
+                        <Button variant="ghost" size="sm" className="h-8 gap-1 px-0 font-medium" onClick={() => handleSort('nama')}>
+                          Nama Santri {sortIcon('nama')}
+                        </Button>
+                      </TableHead>
                       <TableHead>Halaqah</TableHead>
-                      <TableHead className="text-center">Total Halaman</TableHead>
+                      <TableHead className="text-center">
+                        <Button variant="ghost" size="sm" className="h-8 gap-1 font-medium" onClick={() => handleSort('totalHalaman')}>
+                          Total Halaman {sortIcon('totalHalaman')}
+                        </Button>
+                      </TableHead>
                       <TableHead className="text-center">Jumlah Setoran</TableHead>
-                      <TableHead className="text-center">Total Juz</TableHead>
+                      <TableHead className="text-center">
+                        <Button variant="ghost" size="sm" className="h-8 gap-1 font-medium" onClick={() => handleSort('totalJuz')}>
+                          Total Juz {sortIcon('totalJuz')}
+                        </Button>
+                      </TableHead>
                       <TableHead>Ayat Terakhir</TableHead>
                       <TableHead>Tanggal Terakhir</TableHead>
                       <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredData.map((h, index) => (
+                    {sortedData.map((h, index) => (
                       <TableRow
                         key={h.santriId}
                         className={h.isActive ? '' : 'bg-muted/30'}
