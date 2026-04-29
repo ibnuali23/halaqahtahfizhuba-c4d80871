@@ -23,13 +23,15 @@ import { useRekapHafalan, bulanList, getCurrentBulan, RekapSantri } from '@/hook
 import { supabase } from '@/integrations/supabase/client';
 import { getWIBTime } from '@/hooks/useAbsensi';
 import { usePengaturanSistem } from '@/hooks/usePengaturanSistem';
-import { Download, Printer, Loader2, Calendar } from 'lucide-react';
+import { Download, Printer, Loader2, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const months = bulanList;
 const currentYear = getWIBTime().getFullYear();
 const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i); // 5 years back, current, 5 years forward
+type SortField = 'nama' | 'totalHalaman' | 'totalJuz';
+type SortDirection = 'asc' | 'desc';
 
 export default function LaporanPage() {
   const { user } = useAuth();
@@ -37,6 +39,8 @@ export default function LaporanPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [filterKelas, setFilterKelas] = useState<string>('all');
   const [filterHalaqah, setFilterHalaqah] = useState<string>('all');
+  const [sortField, setSortField] = useState<SortField>('nama');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const { data: rekapData, isLoading } = useRekapHafalan(selectedMonth, selectedYear);
   const { settings: pengaturanSistem } = usePengaturanSistem();
@@ -54,6 +58,34 @@ export default function LaporanPage() {
   if (filterHalaqah !== 'all' && user?.role === 'admin') {
     filteredData = filteredData.filter((h) => h.halaqah === filterHalaqah);
   }
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection(field === 'nama' ? 'asc' : 'desc');
+  };
+
+  const sortedData = [...filteredData].sort((a, b) => {
+    let comparison = 0;
+
+    if (sortField === 'nama') {
+      comparison = a.santriNama.localeCompare(b.santriNama, 'id');
+    } else if (sortField === 'totalHalaman') {
+      comparison = a.totalHalamanBulan - b.totalHalamanBulan;
+    } else {
+      comparison = (a.totalJuz ?? 0) - (b.totalJuz ?? 0);
+    }
+
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const sortIcon = (field: SortField) => (
+    <ArrowUpDown className={`h-3.5 w-3.5 ${sortField === field ? 'opacity-100' : 'opacity-60'}`} />
+  );
 
 
   // Calculate stats based on filtered data
@@ -136,7 +168,7 @@ export default function LaporanPage() {
   const handleExportPDF = () => {
     // Export as CSV for now
     const headers = ['No', 'Nama Santri', 'Halaqah', 'Angkatan', `Hafalan ${selectedMonth}`, 'Update Terakhir', 'Total Juz', 'Status'];
-    const rows = filteredData.map((item, index) => [
+    const rows = sortedData.map((item, index) => [
       index + 1,
       item.santriNama,
       item.halaqah,
@@ -312,17 +344,25 @@ export default function LaporanPage() {
             <TableHeader>
               <TableRow className="bg-primary hover:bg-primary">
                 <TableHead className="text-primary-foreground font-semibold">No</TableHead>
-                <TableHead className="text-primary-foreground font-semibold">Nama Santri</TableHead>
+                <TableHead className="text-primary-foreground font-semibold">
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 px-0 font-semibold text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => handleSort('nama')}>
+                    Nama Santri {sortIcon('nama')}
+                  </Button>
+                </TableHead>
                 <TableHead className="text-primary-foreground font-semibold">Musyrif</TableHead>
                 <TableHead className="text-primary-foreground font-semibold">Angkatan</TableHead>
                 <TableHead className="text-primary-foreground font-semibold text-center">
-                  Hafalan {selectedMonth}
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 font-semibold text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => handleSort('totalHalaman')}>
+                    Hafalan {selectedMonth} {sortIcon('totalHalaman')}
+                  </Button>
                 </TableHead>
                 <TableHead className="text-primary-foreground font-semibold text-center">
                   Update Terakhir
                 </TableHead>
                 <TableHead className="text-primary-foreground font-semibold text-center">
-                  Total Juz
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 font-semibold text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => handleSort('totalJuz')}>
+                    Total Juz {sortIcon('totalJuz')}
+                  </Button>
                 </TableHead>
                 <TableHead className="text-primary-foreground font-semibold">Status</TableHead>
               </TableRow>
@@ -335,7 +375,7 @@ export default function LaporanPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredData.map((item, index) => (
+                sortedData.map((item, index) => (
                   <TableRow key={item.santriId} className="hover:bg-accent/50">
                     <TableCell>{index + 1}</TableCell>
                     <TableCell className="font-medium">{item.santriNama}</TableCell>
